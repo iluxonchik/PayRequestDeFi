@@ -1,0 +1,83 @@
+{
+	"compiler": {
+		"version": "0.8.7+commit.e28d00a7"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "cntAddr",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "call",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "demo",
+				"outputs": [
+					{
+						"internalType": "contract Demo1",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/Demo2.sol": "Demo2"
+		},
+		"evmVersion": "london",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/Demo1.sol": {
+			"keccak256": "0xd72275492d7bcc1d2c2ff75d70c344b3e3da30c543313cc85cd7582313d90d9c",
+			"urls": [
+				"bzz-raw://800e401af4c6fa6a2a16364fe2ccd519854d6789ac741e97d9de32c06335bd9f",
+				"dweb:/ipfs/Qme8GS7qfhf29Y8AjaQ7JQ5cvtGgg5n52VdBeTvEBnP1Lr"
+			]
+		},
+		"contracts/Demo2.sol": {
+			"keccak256": "0x18d84bc54272edbdd2d75474c514084a72c4734fe7421659aa6d4257948b2312",
+			"urls": [
+				"bzz-raw://c47973e06208441a32d740691b7c24d095b99afb8163cc9c6a33e0d0ac308937",
+				"dweb:/ipfs/QmfKYZ4Ud97RgfL3uqq764eg5X7ZMrLw4aWu2cagn9uJaZ"
+			]
+		}
+	},
+	"version": 1
+}
