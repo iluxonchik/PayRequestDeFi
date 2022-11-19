@@ -1,0 +1,44 @@
+{
+	"compiler": {
+		"version": "0.8.7+commit.e28d00a7"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/libraries/Billing.sol": "Billing"
+		},
+		"evmVersion": "london",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/libraries/Billing.sol": {
+			"keccak256": "0xef30242f741ff597906c052a787267564cbee8631bb55d219df8fdf58ca4568a",
+			"urls": [
+				"bzz-raw://ed762633a84b20e26425507af4674412f2f1b5aee819a11fff8e44c8b0874eec",
+				"dweb:/ipfs/QmS8C5qqKKHeRJaPNmicwcwyvTPdv5hC2TZRNGDu3WUDxm"
+			]
+		}
+	},
+	"version": 1
+}
