@@ -33,10 +33,10 @@
 	},
 	"sources": {
 		"contracts/libraries/Billing.sol": {
-			"keccak256": "0xe1270f1fc2c042d46824c13a9234ebdf247dcd5743adab744528d430a636bb81",
+			"keccak256": "0x57a1d35d0c785e10a5a348812bdb2959e93d5b4bbdaffdaefa0bbdda9e06546a",
 			"urls": [
-				"bzz-raw://9e97bd013ca1c9e723adbae81ef735a1e2c2046388946130e6871f522cf3c70d",
-				"dweb:/ipfs/QmPzFC5t3cUDfG7qxaUB3izi4ER9uF7ZyQEQbT1kUYK8KJ"
+				"bzz-raw://24bdf2a2ad1e95fc9396efd5568bacec5974ddb0f5148c7c612f746be59d2001",
+				"dweb:/ipfs/QmULHx4h3QcELaQwmFV1SoMojdLUoKKM8j1UV1dixk4ZCP"
 			]
 		}
 	},

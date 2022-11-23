@@ -13,10 +13,4 @@ library Billing {
         address tokenAddr;
         uint256 tokenAmount;
     }
-
-    /// @notice Maps ERC-721 token ID to the token addrss that maps to the price in terms of the amount of that token.
-    struct RequestPrice {
-        mapping(uint => mapping(address => TokenPriceMappingValue)) tokenIdToPriceMap;
-        mapping(uint => TokenPrice[]) tokenIdToPriceArray;
-    }
 }

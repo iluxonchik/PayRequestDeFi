@@ -2,8 +2,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/IERC20.sol";
+import "interfaces/IERC20.sol";
 
 import {Billing} from "./libraries/Billing.sol";
 
@@ -16,9 +15,12 @@ contract BillingRequest is ERC721 {
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenId;
-    // map of Billing Request ERC-721 to its prices
-    Billing.RequestPrice internal requestPrice;
+
     mapping(address => uint256[]) public tokenIdsCreatedByAddr;
+
+    // map of Billing Request ERC-721 to its prices
+    mapping(uint => mapping(address => Billing.TokenPriceMappingValue)) tokenIdToPriceMap;
+    mapping(uint => Billing.TokenPrice[]) tokenIdToPriceArray;
 
     constructor() ERC721("Billing Request", "BRQ") {}
 
@@ -31,13 +33,13 @@ contract BillingRequest is ERC721 {
     /// is below 1000, then rquire an additional explicit confirmation. However, such as sytem is outside of the
     /// scope of the initial version of this module.
     function _storePricesInInternalStructures(uint256 tokenId, Billing.TokenPrice[] memory prices) internal {
-        requestPrice.tokenIdToPriceArray[tokenId] = prices;
-        for (uint i = 0; i < requestPrice.tokenIdToPriceArray[tokenId].length; i++) {
-            Billing.TokenPrice storage price = requestPrice.tokenIdToPriceArray[tokenId][i];
-            requestPrice.tokenIdToPriceMap[tokenId][price.tokenAddr] = Billing.TokenPriceMappingValue({
+        for (uint i = 0; i < prices.length; i++) {
+            Billing.TokenPrice storage price = tokenIdToPriceArray[tokenId][i];
+            tokenIdToPriceMap[tokenId][price.tokenAddr] = Billing.TokenPriceMappingValue({
                 tokenAmount: price.tokenAmount,
                 isSet: true
             });
+            tokenIdToPriceArray[tokenId].push(price);
         }
     }
 
@@ -46,7 +48,7 @@ contract BillingRequest is ERC721 {
     /// does not accept payments in the provided token ID. You should always check the isSet variable of the
     /// reutned struct: if it false, the payments in the provided token are not defined.
     /// Both parts done in a single function to be more gas efficient.
-    function getPrieForTokenId(uint256 billId, address  tokenAddr) public view returns (TokenPriceMappingValue) {
+    function getPriceForTokenId(uint256 billId, address tokenAddr) public view returns (Billing.TokenPriceMappingValue memory) {
         return tokenIdToPriceMap[billId][tokenAddr];
     }
 
@@ -68,12 +70,13 @@ contract BillingRequest is ERC721 {
         return create(prices, msg.sender);
     }
 
-    function payBill(uint256 billId, address tokenAddr) {
+    function payBill(uint256 billId, address tokenAddr) external returns (bool) {
         // immune to attack described in https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729,
         // since the approval and the transfer are done one after another.
 
         // verify that token addr is in digital bill
-        Billing.TokenPriceMappingValue tokenPrice = getPrieForTokenId(billId, tokenAddr);
+        Billing.TokenPriceMappingValue memory tokenPrice = getPriceForTokenId(billId, tokenAddr);
+
         if (tokenPrice.isSet) {
             // payments in the provided token are accepted
 
@@ -86,20 +89,19 @@ contract BillingRequest is ERC721 {
             IERC20 erc20Token = IERC20(tokenAddr);
             bool isTransferSuccess = erc20Token.transferFrom(
                 msg.sender,
-                addrss(this),
+                address(this),
                 tokenPrice.tokenAmount
             );
 
             if (isTransferSuccess) {
                 // bill has been succesfully paid!
                 emit BillPaid(billId, msg.sender, ownerOf(billId), tokenAddr, tokenPrice.tokenAmount);
-                // TODO: emit receipt
                 // TODO: run post-event function
+                // TODO: emit receipt
+                return true;
+            } else {
+                revert("Could not transfer payment.");
             }
-
-
-
-
         } else {
             revert("Payments in the provided token are not accepted.");
         }

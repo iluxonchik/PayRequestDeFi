@@ -64,6 +64,43 @@
 				"anonymous": false,
 				"inputs": [
 					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "billId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "buyer",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "seller",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "BillPaid",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
 						"indexed": true,
 						"internalType": "address",
 						"name": "from",
@@ -133,7 +170,7 @@
 							},
 							{
 								"internalType": "uint256",
-								"name": "tokenAmmount",
+								"name": "tokenAmount",
 								"type": "uint256"
 							}
 						],
@@ -169,7 +206,7 @@
 							},
 							{
 								"internalType": "uint256",
-								"name": "tokenAmmount",
+								"name": "tokenAmount",
 								"type": "uint256"
 							}
 						],
@@ -203,6 +240,42 @@
 						"internalType": "address",
 						"name": "",
 						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "billId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "tokenAddr",
+						"type": "address"
+					}
+				],
+				"name": "getPriceForTokenId",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "tokenAmount",
+								"type": "uint256"
+							},
+							{
+								"internalType": "bool",
+								"name": "isSet",
+								"type": "bool"
+							}
+						],
+						"internalType": "struct Billing.TokenPriceMappingValue",
+						"name": "",
+						"type": "tuple"
 					}
 				],
 				"stateMutability": "view",
@@ -262,6 +335,30 @@
 					}
 				],
 				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "billId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "tokenAddr",
+						"type": "address"
+					}
+				],
+				"name": "payBill",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
 				"type": "function"
 			},
 			{
@@ -479,7 +576,11 @@
 		},
 		"userdoc": {
 			"kind": "user",
-			"methods": {},
+			"methods": {
+				"getPriceForTokenId(uint256,address)": {
+					"notice": "Retuns the TokenPriceMappingValue for a given bill and token pair. Practically, this allows you to obtain price in tokens for a given contract address, or identify that the provided bill ID does not accept payments in the provided token ID. You should always check the isSet variable of the reutned struct: if it false, the payments in the provided token are not defined. Both parts done in a single function to be more gas efficient."
+				}
+			},
 			"version": 1
 		}
 	},
@@ -588,17 +689,24 @@
 			]
 		},
 		"contracts/BillingRequest.sol": {
-			"keccak256": "0x957d1ac73fe1dda15fcf3e7d96d5942d20452e3fbc3828c4cb3cdbba24260eb7",
+			"keccak256": "0xffb12834a08526b54a3bdf6d19d0fb0c8c45bd6a01c253fe3476925e28e9ce30",
 			"urls": [
-				"bzz-raw://2a956c51d4c5884b06a40a71eff1c7a19f0329309569af7944a432248ff2e101",
-				"dweb:/ipfs/QmY7MJ95ZhLX4gZg9mSDV48Un5p7sdeBVMH3DWw6MMDtE5"
+				"bzz-raw://c1d4e0f763c3999db306a41a12b1a6b5bc119406be45e6ff9fb90af04f01a6fb",
+				"dweb:/ipfs/QmVb8Wt5dyyX7YW3Vb7twb1DbPrFGNPKosfo3Tx5riu3s2"
 			]
 		},
 		"contracts/libraries/Billing.sol": {
-			"keccak256": "0xef30242f741ff597906c052a787267564cbee8631bb55d219df8fdf58ca4568a",
+			"keccak256": "0x57a1d35d0c785e10a5a348812bdb2959e93d5b4bbdaffdaefa0bbdda9e06546a",
 			"urls": [
-				"bzz-raw://ed762633a84b20e26425507af4674412f2f1b5aee819a11fff8e44c8b0874eec",
-				"dweb:/ipfs/QmS8C5qqKKHeRJaPNmicwcwyvTPdv5hC2TZRNGDu3WUDxm"
+				"bzz-raw://24bdf2a2ad1e95fc9396efd5568bacec5974ddb0f5148c7c612f746be59d2001",
+				"dweb:/ipfs/QmULHx4h3QcELaQwmFV1SoMojdLUoKKM8j1UV1dixk4ZCP"
+			]
+		},
+		"interfaces/IERC20.sol": {
+			"keccak256": "0x4af18ee3fa079d2df7a2e46aff1e09da0166c4121983db3d1d45b547c3935589",
+			"urls": [
+				"bzz-raw://8ba7b97c7e9f9000baf95dd524b36c4d25dc907986634cea8c56ac597a68a099",
+				"dweb:/ipfs/QmSCHmip2JnAZ2tjSgmhvvgJmTquKagF2MWRi6bQV5Gbee"
 			]
 		}
 	},
