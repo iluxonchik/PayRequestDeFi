@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "interfaces/IERC20.sol";
 
+
 import {Billing} from "./libraries/Billing.sol";
 
 // TODO: abstract all of the bill storage into a separate contract
@@ -56,12 +57,11 @@ contract BillingRequest is ERC721 {
         uint256 tokenId = _tokenId.current();
         // the payments will be done to the owner of the ERC720. the "lending" of payTo should be done via another SC
         _mint(payTo, tokenId);
-        _tokenId.increment();
 
         // map token prices into internal data structure
-        _storePricesInInternalStructures(_tokenId.current(), prices);
+        _storePricesInInternalStructures(tokenId, prices);
         tokenIdsCreatedByAddr[msg.sender].push(tokenId);
-
+        _tokenId.increment();
         return tokenId;
 
     }
