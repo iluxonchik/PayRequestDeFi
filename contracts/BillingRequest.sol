@@ -19,8 +19,8 @@ contract BillingRequest is ERC721 {
     mapping(address => uint256[]) public tokenIdsCreatedByAddr;
 
     // map of Billing Request ERC-721 to its prices
-    mapping(uint => mapping(address => Billing.TokenPriceMappingValue)) tokenIdToPriceMap;
-    mapping(uint => Billing.TokenPrice[]) tokenIdToPriceArray;
+    mapping(uint => mapping(address => Billing.TokenPriceMappingValue)) public tokenIdToPriceMap;
+    mapping(uint => Billing.TokenPrice[]) public tokenIdToPriceArray;
 
     constructor() ERC721("Billing Request", "BRQ") {}
 
@@ -34,7 +34,7 @@ contract BillingRequest is ERC721 {
     /// scope of the initial version of this module.
     function _storePricesInInternalStructures(uint256 tokenId, Billing.TokenPrice[] memory prices) internal {
         for (uint i = 0; i < prices.length; i++) {
-            Billing.TokenPrice storage price = tokenIdToPriceArray[tokenId][i];
+            Billing.TokenPrice memory price = prices[i];
             tokenIdToPriceMap[tokenId][price.tokenAddr] = Billing.TokenPriceMappingValue({
                 tokenAmount: price.tokenAmount,
                 isSet: true

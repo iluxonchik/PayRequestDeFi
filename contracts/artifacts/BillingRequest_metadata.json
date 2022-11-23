@@ -465,6 +465,64 @@
 			{
 				"inputs": [
 					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "tokenIdToPriceArray",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "tokenAddr",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tokenAmount",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "tokenIdToPriceMap",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "tokenAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "isSet",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "address",
 						"name": "",
 						"type": "address"
@@ -689,10 +747,10 @@
 			]
 		},
 		"contracts/BillingRequest.sol": {
-			"keccak256": "0xffb12834a08526b54a3bdf6d19d0fb0c8c45bd6a01c253fe3476925e28e9ce30",
+			"keccak256": "0x1ff2d88c5d12793930bb56cac7c5326dbb59a6ca38fcfebb1ea46389c9c92425",
 			"urls": [
-				"bzz-raw://c1d4e0f763c3999db306a41a12b1a6b5bc119406be45e6ff9fb90af04f01a6fb",
-				"dweb:/ipfs/QmVb8Wt5dyyX7YW3Vb7twb1DbPrFGNPKosfo3Tx5riu3s2"
+				"bzz-raw://0dd7ffc58de225e577a693de3f0c023f27491af5fd1ae2ca008627c90dbf0b99",
+				"dweb:/ipfs/QmWNbsAqHN7q87icvRRnEF9kuc6osKEZjUwGPHnYd5HNs9"
 			]
 		},
 		"contracts/libraries/Billing.sol": {
