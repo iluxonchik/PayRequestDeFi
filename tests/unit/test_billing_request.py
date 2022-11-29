@@ -148,14 +148,14 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_billing_requ
     assert tx1.status == Status.Confirmed
 
     ## second intreactor
-    tx2: TransactionReceipt = br.create([[str(erc20_one.address), TOKEN_AMOUNT_ONE]], interactor_two.address, {"from": interactor_two})
+    tx2: TransactionReceipt = br.createWithCustomPayee([[str(erc20_one.address), TOKEN_AMOUNT_ONE]], interactor_two.address, {"from": interactor_two})
     assert tx2.status == Status.Confirmed
 
     ### second interactor creates one more billing request, same as above
     tx2 = br.create([[str(erc20_one.address), TOKEN_AMOUNT_ONE]], {"from": interactor_two})
     assert tx2.status == Status.Confirmed
 
-    tx3: TransactionReceipt = br.create([
+    tx3: TransactionReceipt = br.createWithCustomPayee([
         [str(erc20_one.address), TOKEN_AMOUNT_ONE],
         [str(erc20_three.address), TOKEN_AMOUNT_THREE],
     ], interactor_three.address, {"from": interactor_two})
