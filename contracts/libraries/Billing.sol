@@ -13,4 +13,12 @@ library Billing {
         address tokenAddr;
         uint256 tokenAmount;
     }
+
+    struct Receipt {
+        uint256 billingRequestId;
+        address tokenId;
+        uint256 tokenAmount;
+        address payer;
+        address payee;
+    }
 }
