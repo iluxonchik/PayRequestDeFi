@@ -8,28 +8,29 @@ import "interfaces/IERC20.sol";
 
 
 
-import {Billing} from "./libraries/Billing.sol";
+import {Payment} from "./libraries/Payment.sol";
 
 contract Receipt is ERC721, Ownable {
 
     using Counters for Counters.Counter;
-    Counters.Counter private _tokenId;
+    Counters.Counter internal _tokenId;
 
-    mapping(uint256 => Billing.Receipt) public receipt;
+    mapping(uint256 => Payment.Receipt) public receipt;
 
     constructor(string memory name, string memory symbol) ERC721(name, symbol) {}
 
-    function create(uint256 billingRequestId, address tokenId, uint256 tokenAmount, address payer, address payee) public onlyOwner returns (uint256) {
+    function create(uint256 paymentRequestId, address tokenId, uint256 tokenAmount, address payerAddr, address payeeAddr) public virtual returns (uint256) {
         uint256 ercTokenId = _tokenId.current();
         _mint(msg.sender, ercTokenId);
         _tokenId.increment();
-        receipt[ercTokenId] = Billing.Receipt(
+        // PaymentRequest contract address can be obtained by ownerOf(<receiptId>)
+        receipt[ercTokenId] = Payment.Receipt(
             {
-                billingRequestId: billingRequestId,
+                paymentRequestId: paymentRequestId,
                 tokenId: tokenId,
                 tokenAmount: tokenAmount,
-                payer: payer,
-                payee: payee
+                payerAddr: payerAddr,
+                payeeAddr: payeeAddr
             }
         );
         return ercTokenId;

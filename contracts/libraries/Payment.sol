@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-library Billing {
+library Payment {
 
     /// @notice Price of token in terms of its amount. Mapping value interface.
     struct TokenPriceMappingValue {
@@ -15,10 +15,10 @@ library Billing {
     }
 
     struct Receipt {
-        uint256 billingRequestId;
+        uint256 paymentRequestId;
         address tokenId;
         uint256 tokenAmount;
-        address payer;
-        address payee;
+        address payerAddr;
+        address payeeAddr;
     }
 }
