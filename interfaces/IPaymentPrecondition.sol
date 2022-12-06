@@ -8,5 +8,5 @@ interface IPaymentPrecondition {
     /// is desirable if your goal is to display a generic error message. The returning of the false value could be particulary
     /// useful in Zero-Knowledge type of computations, where you may not want to expose the specific conidtion which was not
     /// met by the caller.
-    function isPaymentPreconditionMet(uint256 paymentRequestId, address payee, address token) external returns(bool);
+    function isPaymentPreconditionMet(uint256 paymentRequestId, address payer, address token) external returns(bool);
 }
