@@ -83,6 +83,7 @@ class ContractBuilder:
             erc20TokenAddr=erc20.address,
             erc721TokenAddr=erc721.address,
             account=self._account,
+            force_deploy=self._force_deploy,
         )
 
         # Meta attribute attached, type is now changed
