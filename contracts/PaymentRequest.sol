@@ -266,12 +266,21 @@ contract PaymentRequest is ERC721 {
 
 
     /* == BEGIN PaymentRequest creation procedures == */
-    // Limiting to only the strictly necessary creators is an intentional decision. Any constructing utilities,
-    // such as the numerous create overload possibilities should be deployed as a part of a separate contract.
+
+    // Limiting to only the strictly necessary creators semantically is an intentional decision. Any constructing
+    // utilities, such as the numerous create overload possibilities should be deployed as a part of a separate contract.
     // The payTo option allows for a proxied creation of PaymentRequests. In such an approach, this payment system this
     // an L1 and its goal is to offer core functionality. Any additional one should be developed as a part of
     // distinct contracts, which would be acting akin to an L2 for this L1.
-    function create(
+
+    // In my vision, there are two variables in the semantics:
+    // * static or dynamic price definition - results in the prices and priceComputer parameters
+    // * proxied or non-proxied creation - results in the presence or absence of the payTo parameter
+
+    // Initially I started with overloading, but practical deliberation revealed that more explicit constructors
+    // are better, as they are also self-documenting.
+
+    function createWithStaticPriceFor(
         Payment.TokenPrice[] memory prices,
         address payTo,
         address paymentPrecondition,
@@ -285,7 +294,7 @@ contract PaymentRequest is ERC721 {
         return tokenId;
     }
 
-    function create(
+    function createWithDynamicPriceFor(
         address priceComputer,
         address payTo,
         address paymentPrecondition,
@@ -297,6 +306,23 @@ contract PaymentRequest is ERC721 {
         tokenIdToPriceComputer[tokenId] = priceComputer;
 
         return tokenId;
+    }
+
+    function createWithStaticPrice(
+        Payment.TokenPrice[] memory prices,
+        address paymentPrecondition,
+        address postPaymentAction
+    ) public returns (uint256) {
+        return createWithStaticPriceFor(prices, msg.sender, paymentPrecondition, postPaymentAction);
+    }
+
+    function createWithDynamicPrice(
+        address priceComputer,
+        address payTo,
+        address paymentPrecondition,
+        address postPaymentAction
+    ) public returns (uint256) {
+        return createWithDynamicPriceFor(priceComputer, msg.sender, paymentPrecondition, postPaymentAction);
     }
 
     /* == END PaymentRequest creation procedures == */
