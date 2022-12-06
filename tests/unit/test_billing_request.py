@@ -7,15 +7,17 @@ environment and can run on either fresh or already existing blockchain state.
 from typing import Tuple
 
 import pytest
-from brownie import network, accounts
 from brownie import PaymentRequest, MyERC20, Receipt
+from brownie import network, accounts
 from brownie.exceptions import VirtualMachineError
 from brownie.network.account import Account
 from brownie.network.contract import ProjectContract
 from brownie.network.transaction import TransactionReceipt, Status
+from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contants import LOCAL_BLOCKCHAIN_ENVIRONMENTS
 from scripts.utils.contract import ContractBuilder
+
 
 # TODO: move to decorator/pytest groups
 def skip_if_not_local_blockchain():
@@ -49,7 +51,7 @@ def test_GIVEN_payment_request_creation_WHEN_no_prices_are_provided_THEN_payment
 
     # WHEN
     with pytest.raises(VirtualMachineError):
-        pr.create['tuple[]']([], {"from": interactor})
+        pr.createWithStaticPrice([], ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
 
 
 def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_request_created_THEN_internal_state_is_correct(*args, **kwargs):
@@ -66,7 +68,7 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
     erc20: ProjectContract = MyERC20.deploy("illya", "ILY", 1, {"from": deployer})
 
     # WHEN
-    tx: TransactionReceipt = pr.create['tuple[]']([[str(erc20.address), TOKEN_AMOUNT]], {"from": interactor})
+    tx: TransactionReceipt = pr.createWithStaticPrice([[str(erc20.address), TOKEN_AMOUNT]], ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
     assert tx.status == Status.Confirmed
 
     # THEN
@@ -104,9 +106,11 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
     erc20_three: ProjectContract = MyERC20.deploy("maybe illya", "MAYBEILY", 213, {"from": deployer})
 
     # WHEN
-    tx: TransactionReceipt = pr.create['tuple[]']([[str(erc20_one.address), TOKEN_AMOUNT_ONE],
+    tx: TransactionReceipt = pr.createWithStaticPrice([[str(erc20_one.address), TOKEN_AMOUNT_ONE],
                                         [str(erc20_two.address), TOKEN_AMOUNT_TWO],
                                         [str(erc20_three.address), TOKEN_AMOUNT_THREE]],
+                                        ADDRESS_ZERO,
+                                        ADDRESS_ZERO,
                                        {"from": interactor})
     assert tx.status == Status.Confirmed
 
@@ -158,25 +162,39 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
     # WHEN
 
     ## first interactor
-    tx1: TransactionReceipt = pr.create['tuple[]']([[str(erc20_one.address), TOKEN_AMOUNT_ONE],
+    tx1: TransactionReceipt = pr.createWithStaticPrice([[str(erc20_one.address), TOKEN_AMOUNT_ONE],
                                         [str(erc20_two.address), TOKEN_AMOUNT_TWO],
                                         [str(erc20_three.address), TOKEN_AMOUNT_THREE]],
+                                        ADDRESS_ZERO,
+                                        ADDRESS_ZERO,
                                         {"from": interactor_one})
 
     assert tx1.status == Status.Confirmed
 
     ## second intreactor
-    tx2: TransactionReceipt = pr.createWithCustomPayee['tuple[]', 'address']([[str(erc20_one.address), TOKEN_AMOUNT_ONE]], interactor_two.address, {"from": interactor_two})
+    tx2: TransactionReceipt = pr.createWithStaticPriceFor([[str(erc20_one.address), TOKEN_AMOUNT_ONE]],
+                                        interactor_two.address,
+                                        ADDRESS_ZERO,
+                                        ADDRESS_ZERO,
+                                        {"from": interactor_two})
     assert tx2.status == Status.Confirmed
 
     ### second interactor creates one more payment request, same as above
-    tx2 = pr.create['tuple[]']([[str(erc20_one.address), TOKEN_AMOUNT_ONE]], {"from": interactor_two})
+    tx2 = pr.createWithStaticPrice([[str(erc20_one.address), TOKEN_AMOUNT_ONE]],
+                    ADDRESS_ZERO,
+                    ADDRESS_ZERO,
+                    {"from": interactor_two})
     assert tx2.status == Status.Confirmed
 
-    tx3: TransactionReceipt = pr.createWithCustomPayee['tuple[]', 'address']([
+    tx3: TransactionReceipt = pr.createWithStaticPriceFor([
         [str(erc20_one.address), TOKEN_AMOUNT_ONE],
         [str(erc20_three.address), TOKEN_AMOUNT_THREE],
-    ], interactor_three.address, {"from": interactor_two})
+        ],
+        interactor_three.address,
+        ADDRESS_ZERO,
+        ADDRESS_ZERO,
+        {"from": interactor_two}
+    )
 
     assert tx3.status == Status.Confirmed
 
@@ -269,7 +287,10 @@ def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THE
     contract_builder: ContractBuilder = ContractBuilder(account=account)
 
     pr: PaymentRequest = contract_builder.PaymentRequest
-    tx: TransactionReceipt = pr.create['tuple[]']([[str(pr.address), TOKEN_AMOUNT]], {"from": account})
+    tx: TransactionReceipt = pr.createWithStaticPrice([[str(pr.address), TOKEN_AMOUNT]],
+                                       ADDRESS_ZERO,
+                                       ADDRESS_ZERO,
+                                       {"from": account})
 
     assert tx.status == Status.Confirmed
     created_token_id: int = tx.value
@@ -305,7 +326,10 @@ def test_GIVEN_deployed_contract_WHEN_non_owner_attempting_to_disable_and_enable
     contract_builder: ContractBuilder = ContractBuilder(account=owner)
 
     pr: PaymentRequest = contract_builder.PaymentRequest
-    tx: TransactionReceipt = pr.create['tuple[]']([[str(pr.address), TOKEN_AMOUNT]], {"from": owner})
+    tx: TransactionReceipt = pr.createWithStaticPrice([[str(pr.address), TOKEN_AMOUNT]],
+                                                      ADDRESS_ZERO,
+                                                      ADDRESS_ZERO,
+                                                      {"from": owner})
 
     assert tx.status == Status.Confirmed
     created_token_id: int = tx.value
@@ -316,3 +340,4 @@ def test_GIVEN_deployed_contract_WHEN_non_owner_attempting_to_disable_and_enable
 
     with pytest.raises(VirtualMachineError):
         pr.disablePaymentRequest(created_token_id, {"from": not_owner})
+
