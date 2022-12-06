@@ -1,6 +1,10 @@
+from typing import cast
+
+from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721
 from brownie.network.account import Account
 from brownie.network.contract import ContractContainer, ProjectContract
-from brownie import PaymentRequest, Receipt
+
+from scripts.utils.types import NFTOwnerPaymentPreconditionMeta, NFTOwnerPaymentPreconditionWithMeta
 
 
 def force_deploy_contract_instance(contract_cls: ContractContainer, account: Account, *deploy_args) -> ProjectContract:
@@ -20,7 +24,6 @@ class ContractBuilder:
         self._account = account
         self._force_deploy = force_deploy
 
-
     @staticmethod
     def get_receipt_contract(*, account: Account, force_deploy: bool = False) -> Receipt:
         args: tuple = (Receipt, account, "Receipt", "RCT")
@@ -29,6 +32,21 @@ class ContractBuilder:
     @staticmethod
     def get_payment_request_contract(*, receipt: Receipt, account: Account, force_deploy: bool = False) -> PaymentRequest:
         args: tuple = (PaymentRequest, account, "PaymentRequest", "PRQ", receipt)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_my_erc20_contract(*, account: Account, force_deploy: bool = False) -> MyERC20:
+        args: tuple = (MyERC20, account, "Jasmine", "JSM", 1999999)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_my_erc_721_contract(*, account: Account, force_deploy: bool = False) -> MyERC721:
+        args: tuple = (MyERC721, account, "JasmineBut721", "JSM721")
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_nft_owner_payment_precondition(*, erc20TokenAddr: str, erc721TokenAddr: str, account: Account, force_deploy: bool = False) -> NFTOwnerPaymentPrecondition:
+        args: tuple = (NFTOwnerPaymentPrecondition, account, erc20TokenAddr, erc721TokenAddr)
         return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
 
@@ -48,3 +66,28 @@ class ContractBuilder:
     def PaymentRequest(self) -> PaymentRequest:
         receipt: Receipt = self.get_receipt_contract(account=self.account, force_deploy=self._force_deploy)
         return self.get_payment_request_contract(receipt=receipt, account=self._account, force_deploy=self._force_deploy)
+    @property
+    def MyERC20(self) -> MyERC20:
+        return self.get_my_erc20_contract(account=self._account, force_deploy=self._force_deploy)
+
+    @property
+    def MyERC721(self) -> MyERC721:
+        return self.get_my_erc_721_contract(account=self._account, force_deploy=self._force_deploy)
+
+    @property
+    def NFTOwnerPaymentPrecondition(self) -> NFTOwnerPaymentPreconditionWithMeta:
+        erc20: MyERC20 = self.MyERC20
+        erc721: MyERC721 = self.MyERC721
+
+        precondition: NFTOwnerPaymentPrecondition = self.get_nft_owner_payment_precondition(
+            erc20TokenAddr=erc20.address,
+            erc721TokenAddr=erc721.address,
+            account=self._account,
+        )
+
+        # Meta attribute attached, type is now changed
+        precondition.Meta = NFTOwnerPaymentPreconditionMeta(erc20=erc20, erc721=erc721)
+        precondition = cast(NFTOwnerPaymentPreconditionWithMeta, precondition)
+
+        return precondition
+
