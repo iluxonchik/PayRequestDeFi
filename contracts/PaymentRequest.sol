@@ -256,7 +256,7 @@ contract PaymentRequest is ERC721 {
 
     modifier paymentRequestIsEnabled(uint256 paymentRequestId) {
         require(
-            isPaymentRequestEnabled(paymentRequestId),
+            isEnabled(paymentRequestId),
             "PaymentRequest is disabled"
         );
         _;
@@ -328,24 +328,24 @@ contract PaymentRequest is ERC721 {
     /* == END PaymentRequest creation procedures == */
 
     /* == BEGIN PaymentRequest mutators == */
-    function enablePaymentRequest(uint256 paymentRequestId) public {
+    function enable(uint256 paymentRequestId) public {
         require(
             msg.sender == ownerOf(paymentRequestId),
             "Only owner can enable a PaymentRequest"
         );
-        if (isPaymentRequestEnabled(paymentRequestId)) {
+        if (isEnabled(paymentRequestId)) {
             return;
         }
         tokenIdToEnabled[paymentRequestId] = true;
         emit PaymentRequestEnabled(paymentRequestId, msg.sender);
     }
 
-    function disablePaymentRequest(uint256 paymentRequestId) public {
+    function disable(uint256 paymentRequestId) public {
         require(
             msg.sender == ownerOf(paymentRequestId),
             "Only owner can disable a PaymentRequest"
         );
-        if (isPaymentRequestEnabled(paymentRequestId)) {
+        if (isEnabled(paymentRequestId)) {
             tokenIdToEnabled[paymentRequestId] = false;
             emit PaymentRequestDisabled(paymentRequestId, msg.sender);
         }
@@ -356,7 +356,7 @@ contract PaymentRequest is ERC721 {
 
     /* == BEGIN PaymentRequest state readers == */
 
-    function isPaymentRequestEnabled(uint256 paymentRequestId)
+    function isEnabled(uint256 paymentRequestId)
         public
         view
         returns (bool)
@@ -366,7 +366,7 @@ contract PaymentRequest is ERC721 {
 
     /* == END PaymentRequest state readers == */
 
-    function payBill(uint256 paymentRequestId, address tokenAddr)
+    function pay(uint256 paymentRequestId, address tokenAddr)
         external
         paymentRequestIsEnabled(paymentRequestId)
         returns (bool)
