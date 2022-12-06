@@ -203,8 +203,7 @@ contract PaymentRequest is ERC721 {
         );
 
         return
-            erc20Token.transferFrom(
-                address(this),
+            erc20Token.transfer(
                 ownerOf(paymentRequestId),
                 tokenAmount
             );
