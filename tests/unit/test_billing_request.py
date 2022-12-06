@@ -1,9 +1,8 @@
 """
 Tests related to payment request.
 
-These tests are designed to run in a stateless way, meaning that a fresh blockchain state is expected on each run. In
-other words, this test suite is non-idempotent. This is done by design, as the same account indexes are reused, and
-contracts are not forcefully created, but rather reused after the first deploy, unless specified otherwise explicitly.
+The tests in this test file are fully self-contained, do not assume any state properties of the underlying blockchain
+environment and can run on either fresh or already existing blockchain state.
 """
 from typing import Tuple
 
@@ -260,3 +259,60 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
     with pytest.raises(VirtualMachineError):
         # only 2 price were added for token 3
         pr.tokenIdToPriceArray(3, 2)
+
+def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THEN_it_succeeds_and_correct_events_are_emitted(*args, **kwargs):
+    skip_if_not_local_blockchain()
+
+    # GIVEN
+    TOKEN_AMOUNT: int = 6
+    account: Account = accounts[0]
+    contract_builder: ContractBuilder = ContractBuilder(account=account)
+
+    pr: PaymentRequest = contract_builder.PaymentRequest
+    tx: TransactionReceipt = pr.create['tuple[]']([[str(pr.address), TOKEN_AMOUNT]], {"from": account})
+
+    assert tx.status == Status.Confirmed
+    created_token_id: int = tx.value
+    assert pr.isPaymentRequestEnabled(created_token_id, {"from": account}) == True
+
+    # WHEN/THEN
+    tx = pr.disablePaymentRequest(created_token_id, {"from": account})
+    assert pr.isPaymentRequestEnabled(created_token_id, {"from": account}) == False
+    assert "PaymentRequestDisabled" in tx.events
+
+    # intentional duplicate disable, ensure event not emitted
+    tx = pr.disablePaymentRequest(created_token_id, {"from": account})
+    assert pr.isPaymentRequestEnabled(created_token_id, {"from": account}) == False
+    assert "PaymentRequestEnabled" not in tx.events
+
+    tx = pr.enablePaymentRequest(created_token_id, {"from": account})
+    assert pr.isPaymentRequestEnabled(created_token_id, {"from": account}) == True
+    assert "PaymentRequestEnabled" in tx.events
+
+    # intentional duplicate enable, ensure event not emitted
+    tx = pr.enablePaymentRequest(created_token_id, {"from": account})
+    assert pr.isPaymentRequestEnabled(created_token_id, {"from": account}) == True
+    assert "PaymentRequestEnabled" not in tx.events
+
+
+def test_GIVEN_deployed_contract_WHEN_non_owner_attempting_to_disable_and_enable_THEN_it_fails(*args, **kwargs):
+    skip_if_not_local_blockchain()
+
+    # GIVEN
+    TOKEN_AMOUNT: int = 6
+    owner: Account = accounts[0]
+    not_owner: Account = accounts[1]
+    contract_builder: ContractBuilder = ContractBuilder(account=owner)
+
+    pr: PaymentRequest = contract_builder.PaymentRequest
+    tx: TransactionReceipt = pr.create['tuple[]']([[str(pr.address), TOKEN_AMOUNT]], {"from": owner})
+
+    assert tx.status == Status.Confirmed
+    created_token_id: int = tx.value
+
+    # WHEN/THEN
+    with pytest.raises(VirtualMachineError):
+        pr.enablePaymentRequest(created_token_id, {"from": not_owner})
+
+    with pytest.raises(VirtualMachineError):
+        pr.disablePaymentRequest(created_token_id, {"from": not_owner})
