@@ -97,6 +97,7 @@ contract PaymentRequest is ERC721 {
 
         tokenIdsCreatedByAddr[msg.sender].push(tokenId);
         tokenIdToPostPaymentAction[tokenId] = postPaymentAction;
+        tokenIdToEnabled[tokenId] = true;
 
         _tokenId.increment();
         return tokenId;
@@ -339,6 +340,9 @@ contract PaymentRequest is ERC721 {
             msg.sender == ownerOf(paymentRequestId),
             "Only owner can enable a PaymentRequest"
         );
+        if (isPaymentRequestEnabled(paymentRequestId)) {
+            return;
+        }
         tokenIdToEnabled[paymentRequestId] = true;
         emit PaymentRequestEnabled(paymentRequestId, msg.sender);
     }
@@ -348,8 +352,11 @@ contract PaymentRequest is ERC721 {
             msg.sender == ownerOf(paymentRequestId),
             "Only owner can disable a PaymentRequest"
         );
-        tokenIdToEnabled[paymentRequestId] = false;
-        emit PaymentRequestDisabled(paymentRequestId, msg.sender);
+        if (isPaymentRequestEnabled(paymentRequestId)) {
+            tokenIdToEnabled[paymentRequestId] = false;
+            emit PaymentRequestDisabled(paymentRequestId, msg.sender);
+        }
+
     }
 
     /* == END PaymentRequest mutators == */
