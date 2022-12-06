@@ -87,7 +87,7 @@ contract PaymentRequest is ERC721 {
         }
     }
 
-    function _createCommonBase(address payTo, address postPaymentAction)
+    function _createCommonBase(address payTo, address paymentPrecondition, address postPaymentAction)
         internal
         returns (uint256)
     {
@@ -98,6 +98,7 @@ contract PaymentRequest is ERC721 {
         tokenIdsCreatedByAddr[msg.sender].push(tokenId);
         tokenIdToPostPaymentAction[tokenId] = postPaymentAction;
         tokenIdToEnabled[tokenId] = true;
+        tokenIdToPaymentPrecondition[tokenId] = paymentPrecondition;
 
         _tokenId.increment();
         return tokenId;
@@ -265,12 +266,18 @@ contract PaymentRequest is ERC721 {
 
 
     /* == BEGIN PaymentRequest creation procedures == */
+    // Limiting to only the strictly necessary creators is an intentional decision. Any constructing utilities,
+    // such as the numerous create overload possibilities should be deployed as a part of a separate contract.
+    // The payTo option allows for a proxied creation of PaymentRequests. In such an approach, this payment system this
+    // an L1 and its goal is to offer core functionality. Any additional one should be developed as a part of
+    // distinct contracts, which would be acting akin to an L2 for this L1.
     function create(
         Payment.TokenPrice[] memory prices,
         address payTo,
+        address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
-        uint256 tokenId = _createCommonBase(payTo, postPaymentAction);
+        uint256 tokenId = _createCommonBase(payTo, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
         _storePricesInInternalStructures(tokenId, prices);
@@ -281,55 +288,15 @@ contract PaymentRequest is ERC721 {
     function create(
         address priceComputer,
         address payTo,
+        address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
-        uint256 tokenId = _createCommonBase(payTo, postPaymentAction);
+        uint256 tokenId = _createCommonBase(payTo, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
         tokenIdToPriceComputer[tokenId] = priceComputer;
 
         return tokenId;
-    }
-
-    // requires a different name due to overload type clash
-    function createWithCustomPayee(
-        Payment.TokenPrice[] memory prices,
-        address payTo
-    ) public returns (uint256) {
-        return create(prices, payTo, address(0));
-    }
-
-    // requires a different name due to overload type clash
-    function createWithCustomPayee(address priceComputer, address payTo)
-        public
-        returns (uint256)
-    {
-        return create(priceComputer, payTo, address(0));
-    }
-
-    function create(
-        Payment.TokenPrice[] memory prices,
-        address postPaymentAction
-    ) public returns (uint256) {
-        return create(prices, msg.sender, postPaymentAction);
-    }
-
-    function create(address priceComputer, address postPaymentAction)
-        public
-        returns (uint256)
-    {
-        return create(priceComputer, msg.sender, postPaymentAction);
-    }
-
-    function create(Payment.TokenPrice[] memory prices)
-        public
-        returns (uint256)
-    {
-        return create(prices, msg.sender);
-    }
-
-    function create(address priceComputer) public returns (uint256) {
-        return create(priceComputer, msg.sender);
     }
 
     /* == END PaymentRequest creation procedures == */
