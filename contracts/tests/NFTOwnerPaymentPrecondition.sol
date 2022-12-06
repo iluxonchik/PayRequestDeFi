@@ -9,15 +9,15 @@ contract NFTOwnerPaymentPrecondition is IPaymentPrecondition {
     address public requiredERC721;
     address public exclusivePaymentToken;
 
-    constructor(address exclusivePaymentToken, address requiredERC721) {
-        exclusivePaymentToken = exclusivePaymentToken;
-        requiredERC721 = requiredERC721;
+    constructor(address _exclusivePaymentToken, address _requiredERC721) {
+        exclusivePaymentToken = _exclusivePaymentToken;
+        requiredERC721 = _requiredERC721;
     }
 
-    function isPaymentPreconditionMet(uint256 paymentRequestId, address payee, address token) external returns(bool) {
+    function isPaymentPreconditionMet(uint256 paymentRequestId, address payer, address token) external override returns(bool) {
         address erc721;
         if (token == exclusivePaymentToken) {
-            erc721 = token;
+            erc721 = requiredERC721;
         } else {
             // assumes that message sending contract is an ERC721. in a real-world application you may find
             // address whitelisting desired
@@ -25,6 +25,7 @@ contract NFTOwnerPaymentPrecondition is IPaymentPrecondition {
         }
 
         ERC721 NFTContract = ERC721(erc721);
-        return NFTContract.balanceOf(payee) > 0;
+        uint256 balance = NFTContract.balanceOf(payer);
+        return balance > 0;
     }
 }

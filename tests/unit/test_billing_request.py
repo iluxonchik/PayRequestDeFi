@@ -6,6 +6,7 @@ environment and can run on either fresh or already existing blockchain state.
 """
 from typing import Tuple
 
+import brownie
 import pytest
 from brownie import network, accounts
 from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition
@@ -348,7 +349,6 @@ def atest_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_c
     deployer: Account = accounts[0]
     pr_no_nft: Account = accounts[1]
     nft_no_pr: Account = accounts[2]
-    no_nft_or_pr: Account = accounts[3]
     nft_and_pr: Account = accounts[4]
 
     deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer)
@@ -403,7 +403,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_cr
     deployer: Account = accounts[0]
     no_nft_or_pr: Account = accounts[3]
 
-    deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer)
+    deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
     precondition: NFTOwnerPaymentPreconditionWithMeta = deployer_contract_builder.NFTOwnerPaymentPrecondition
 
     # ensure new contract, distinct from original
@@ -428,9 +428,62 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_cr
     created_token_id: int = tx.value
 
     non_exclusive_token.approve(payment_request.address, NON_EXCLUSIVE_TOKEN_AMOUNT, {"from": no_nft_or_pr})
-    with pytest.raises(VirtualMachineError):
+    with pytest.raises(VirtualMachineError) as e:
         payment_request.pay(created_token_id, non_exclusive_token.address, {"from": no_nft_or_pr})
+        tx = TransactionReceipt(e.value.txid)
+        assert tx.status == Status.Reverted
+        assert "PaymentPreconditionRejected" in tx.events
 
     exclusive_token.approve(payment_request.address, EXCLUSIVE_TOKEN_AMOUNT, {"from": no_nft_or_pr})
     with pytest.raises(VirtualMachineError):
-        payment_request.pay(created_token_id, non_exclusive_token.address, {"from": no_nft_or_pr})
+        payment_request.pay(created_token_id, exclusive_token.address, {"from": no_nft_or_pr})
+        tx = TransactionReceipt(e.value.txid)
+        assert tx.status == Status.Reverted
+        assert "PaymentPreconditionRejected" in tx.events
+
+def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creator_attempts_to_purchase_exclusive_token_THEN_only_exclusive_token_purchase_is_allowed(*args, **kwargs):
+    # GIVEN
+    NON_EXCLUSIVE_TOKEN_AMOUNT: int = 10
+    EXCLUSIVE_TOKEN_AMOUNT: int = 12
+
+    deployer: Account = accounts[0]
+    nft_no_pr: Account = accounts[1]
+
+    deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+    precondition: NFTOwnerPaymentPreconditionWithMeta = deployer_contract_builder.NFTOwnerPaymentPrecondition
+
+    # ensure new contract, distinct from original
+    non_exclusive_token: MyERC20 = deployer_contract_builder.get_my_erc20_contract(account=deployer, force_deploy=True)
+    exclusive_token: MyERC20 = precondition.Meta.erc20
+    exclusive_nft: MyERC721 = precondition.Meta.erc721
+
+    # seed account with tokens
+    non_exclusive_token.transfer(nft_no_pr.address, 100, {"from": deployer})
+    exclusive_token.transfer(nft_no_pr.address, 100, {"from": deployer})
+
+    exclusive_nft.create(nft_no_pr.address, {"from": nft_no_pr})
+
+    # construct the main PaymentRequest
+    payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
+    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+        [
+            [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
+            [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
+        ],
+        precondition.address,
+        ADDRESS_ZERO,
+        {"from": deployer}
+    )
+    created_token_id: int = tx.value
+
+    non_exclusive_token.approve(payment_request.address, NON_EXCLUSIVE_TOKEN_AMOUNT, {"from": nft_no_pr})
+    with pytest.raises(VirtualMachineError) as e:
+        payment_request.pay(created_token_id, non_exclusive_token.address, {"from": nft_no_pr})
+        tx = TransactionReceipt(e.value.txid)
+        assert tx.status == Status.Reverted
+        assert "PaymentPreconditionRejected" in tx.events
+
+    exclusive_token.approve(payment_request.address, EXCLUSIVE_TOKEN_AMOUNT, {"from": nft_no_pr})
+    tx = payment_request.pay(created_token_id, exclusive_token.address, {"from": nft_no_pr})
+    assert tx.status == Status.Confirmed
+    assert "PaymentPreconditionRejected" not in tx.events
