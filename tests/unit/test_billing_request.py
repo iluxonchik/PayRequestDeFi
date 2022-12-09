@@ -280,6 +280,7 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
         # only 2 price were added for token 3
         pr.tokenIdToPriceArray(3, 2)
 
+# Payment Request Enable/Disable Tests
 def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THEN_it_succeeds_and_correct_events_are_emitted(*args, **kwargs):
     skip_if_not_local_blockchain()
 
@@ -317,7 +318,6 @@ def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THE
     assert pr.isEnabled(created_token_id, {"from": account}) == True
     assert "PaymentRequestEnabled" not in tx.events
 
-
 def test_GIVEN_deployed_contract_WHEN_non_owner_attempting_to_disable_and_enable_THEN_it_fails(*args, **kwargs):
     skip_if_not_local_blockchain()
 
@@ -343,57 +343,8 @@ def test_GIVEN_deployed_contract_WHEN_non_owner_attempting_to_disable_and_enable
     with pytest.raises(VirtualMachineError):
         pr.disable(created_token_id, {"from": not_owner})
 
-def atest_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_creator_attempts_to_purchase_exclusive_token_THEN_error_occurs(*args, **kwargs):
-    # GIVEN
 
-    deployer: Account = accounts[0]
-    pr_no_nft: Account = accounts[1]
-    nft_no_pr: Account = accounts[2]
-    nft_and_pr: Account = accounts[4]
-
-    deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer)
-    precondition: NFTOwnerPaymentPreconditionWithMeta = deployer_contract_builder.NFTOwnerPaymentPrecondition
-
-    # ensure new contract, distinct from original
-    non_exclusive_token: MyERC20 = deployer_contract_builder.get_my_erc20_contract(account=deployer, force_deploy=True)
-    exclusive_token: MyERC20 = precondition.erc20
-    exclusive_nft: MyERC721 = precondition.erc721
-
-    # construct the main PaymentRequest
-    payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
-    payment_request.createWithStaticPrice(
-        [
-            [non_exclusive_token.address, 10],
-            [exclusive_token.address, 12],
-        ],
-        precondition.address,
-        ADDRESS_ZERO,
-        {"from": deployer}
-    )
-
-    # setup no NFT account
-    payment_request.createWithStaticPrice(
-        [
-            [non_exclusive_token, 10],
-        ],
-        ADDRESS_ZERO,
-        ADDRESS_ZERO,
-        {"from": pr_no_nft}
-    )
-
-    # setup account with both, NFT and PR
-    exclusive_nft.create(nft_no_pr.address, {"from": nft_no_pr})
-    payment_request.createWithStaticPrice(
-        [
-            [non_exclusive_token, 10],
-        ],
-        ADDRESS_ZERO,
-        ADDRESS_ZERO,
-        {"from": nft_and_pr}
-    )
-
-    exclusive_nft.create(nft_no_pr.address, {"from": nft_and_pr})
-
+# Payment Precondition Tests
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_creator_attempts_to_purchase_exclusive_token_THEN_error_occurs(*args, **kwargs):
     # GIVEN
@@ -487,3 +438,117 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creato
     tx = payment_request.pay(created_token_id, exclusive_token.address, {"from": nft_no_pr})
     assert tx.status == Status.Confirmed
     assert "PaymentPreconditionRejected" not in tx.events
+
+
+def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creator_attempts_to_purchase_exclusive_token_THEN_only_non_exclusive_token_purchase_is_allowed(*args, **kwargs):
+    # GIVEN
+    NON_EXCLUSIVE_TOKEN_AMOUNT: int = 10
+    EXCLUSIVE_TOKEN_AMOUNT: int = 12
+
+    deployer: Account = accounts[0]
+    pr_no_nft: Account = accounts[1]
+
+    deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+    precondition: NFTOwnerPaymentPreconditionWithMeta = deployer_contract_builder.NFTOwnerPaymentPrecondition
+
+    # ensure new contract, distinct from original
+    non_exclusive_token: MyERC20 = deployer_contract_builder.get_my_erc20_contract(account=deployer, force_deploy=True)
+    exclusive_token: MyERC20 = precondition.Meta.erc20
+
+    # seed account with tokens
+    non_exclusive_token.transfer(pr_no_nft.address, 100, {"from": deployer})
+    exclusive_token.transfer(pr_no_nft.address, 100, {"from": deployer})
+
+    # construct the main PaymentRequest
+    payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
+    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+        [
+            [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
+            [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
+        ],
+        precondition.address,
+        ADDRESS_ZERO,
+        {"from": deployer}
+    )
+
+    created_token_id: int = tx.value
+
+    # deploy payment for the Non-NFT, only Payment Request owner contract
+    payment_request.createWithStaticPrice(
+        [
+            [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
+            [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
+        ],
+        precondition.address,
+        ADDRESS_ZERO,
+        {"from": pr_no_nft}
+    )
+
+    non_exclusive_token.approve(payment_request.address, NON_EXCLUSIVE_TOKEN_AMOUNT, {"from": pr_no_nft})
+    payment_request.pay(created_token_id, non_exclusive_token.address, {"from": pr_no_nft})
+    assert tx.status == Status.Confirmed
+    assert "PaymentPreconditionRejected" not in tx.events
+
+    exclusive_token.approve(payment_request.address, EXCLUSIVE_TOKEN_AMOUNT, {"from": pr_no_nft})
+    with pytest.raises(VirtualMachineError) as e:
+        payment_request.pay(created_token_id, exclusive_token.address, {"from": pr_no_nft})
+        tx = TransactionReceipt(e.value.txid)
+        assert tx.status == Status.Reverted
+        assert "PaymentPreconditionRejected" in tx.events
+
+def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creator_attempts_to_purchase_exclusive_token_THEN_both_token_purchases_are_allowed(*args, **kwargs):
+    # GIVEN
+    NON_EXCLUSIVE_TOKEN_AMOUNT: int = 10
+    EXCLUSIVE_TOKEN_AMOUNT: int = 12
+
+    deployer: Account = accounts[0]
+    pr_and_nft: Account = accounts[1]
+
+    deployer_contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+    precondition: NFTOwnerPaymentPreconditionWithMeta = deployer_contract_builder.NFTOwnerPaymentPrecondition
+
+    # ensure new contract, distinct from original
+    non_exclusive_token: MyERC20 = deployer_contract_builder.get_my_erc20_contract(account=deployer, force_deploy=True)
+    exclusive_token: MyERC20 = precondition.Meta.erc20
+    exclusive_nft: MyERC721 = precondition.Meta.erc721
+
+    # seed account with tokens
+    non_exclusive_token.transfer(pr_and_nft.address, 100, {"from": deployer})
+    exclusive_token.transfer(pr_and_nft.address, 100, {"from": deployer})
+    exclusive_nft.create(pr_and_nft.address, {"from": deployer})
+
+    # construct the main PaymentRequest
+    payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
+    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+        [
+            [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
+            [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
+        ],
+        precondition.address,
+        ADDRESS_ZERO,
+        {"from": deployer}
+    )
+
+    created_token_id: int = tx.value
+
+    # deploy payment for the Non-NFT, only Payment Request owner contract
+    payment_request.createWithStaticPrice(
+        [
+            [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
+            [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
+        ],
+        precondition.address,
+        ADDRESS_ZERO,
+        {"from": pr_and_nft}
+    )
+
+    non_exclusive_token.approve(payment_request.address, NON_EXCLUSIVE_TOKEN_AMOUNT, {"from": pr_and_nft})
+    payment_request.pay(created_token_id, non_exclusive_token.address, {"from": pr_and_nft})
+    assert tx.status == Status.Confirmed
+    assert "PaymentPreconditionRejected" not in tx.events
+
+    exclusive_token.approve(payment_request.address, EXCLUSIVE_TOKEN_AMOUNT, {"from": pr_and_nft})
+    payment_request.pay(created_token_id, exclusive_token.address, {"from": pr_and_nft})
+    assert tx.status == Status.Confirmed
+    assert "PaymentPreconditionRejected" not in tx.events
+
