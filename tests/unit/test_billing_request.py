@@ -4,15 +4,16 @@ Tests related to payment request.
 The tests in this test file are fully self-contained, do not assume any state properties of the underlying blockchain
 environment and can run on either fresh or already existing blockchain state.
 """
+import random
 from typing import Tuple
 
-import brownie
+from brownie.test import given, strategy
 import pytest
 from brownie import network, accounts
-from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition
+from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition, FixedPricePriceComputer
 from brownie.exceptions import VirtualMachineError
 from brownie.network.account import Account
-from brownie.network.contract import ProjectContract
+from brownie.network.contract import ProjectContract, Contract
 from brownie.network.transaction import TransactionReceipt, Status
 from web3.constants import ADDRESS_ZERO
 
@@ -26,6 +27,8 @@ def skip_if_not_local_blockchain():
     if network.show_active() not in LOCAL_BLOCKCHAIN_ENVIRONMENTS:
         pytest.skip("Not in a local blockchain environment.")
 
+def assert_receipt_metadata_is_correct(*, receipt: Receipt, receipt_id: int, payment_request_addr: str, payment_request_id: int, token_addr: str, token_amount: int, payer_addr: str, payee_addr: str):
+    assert receipt.receipt(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr)
 
 def test_GIVEN_payment_request_WHEN_deployed_THEN_deployment_succeeds(*args, **kwargs):
     skip_if_not_local_blockchain()
@@ -552,3 +555,120 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creato
     assert tx.status == Status.Confirmed
     assert "PaymentPreconditionRejected" not in tx.events
 
+# Dynamic Price Computer Test
+@pytest.mark.parametrize("price_in_tokens", [0, random.randint(1, 999)])
+def test_GIVEN_fixed_price_computer_function_WHEN_attempt_to_purchase_is_made_THEN_purchase_with_correct_amount_is_done(price_in_tokens: int, *args, **kwargs):
+    # GIVEN
+    deployer: Account = accounts[0]
+    purchaser: Account = accounts[1]
+    contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+
+    price_computer: FixedPricePriceComputer = contract_builder.get_fixed_price_price_computer(
+        price=price_in_tokens, account=deployer, force_deploy=True
+    )
+    assert price_in_tokens == price_computer.price()
+
+    payment_request: PaymentRequest = contract_builder.PaymentRequest
+    tx: TransactionReceipt = payment_request.createWithDynamicPrice(
+        price_computer.address,
+        ADDRESS_ZERO,
+        ADDRESS_ZERO,
+        {"from": deployer}
+    )
+
+    assert tx.status == Status.Confirmed
+    pr_token_id: int = tx.value
+
+
+    erc_20: MyERC20 = contract_builder.MyERC20
+    erc_20.transfer(
+        purchaser.address,
+        price_in_tokens,
+        {"from": deployer}
+    )
+
+    if price_in_tokens > 0:
+        erc_20.approve(payment_request.address, price_in_tokens, {"from": purchaser})
+
+    # WHEN
+    tx = payment_request.pay(
+        pr_token_id,
+        erc_20.address,
+        {"from": purchaser}
+    )
+
+    # THEN
+    assert tx.status == Status.Confirmed
+
+    receipt_addr: str = payment_request.receipt()
+    receipt: Receipt = Contract.from_abi("Receipt", receipt_addr, Receipt.abi)
+    assert receipt.balanceOf(purchaser.address) == 1
+    assert_receipt_metadata_is_correct(receipt=receipt,
+                                              receipt_id=0,
+                                              payment_request_addr=payment_request.address,
+                                              payment_request_id=pr_token_id,
+                                              token_addr=erc_20.address,
+                                              token_amount=price_in_tokens,
+                                              payer_addr=purchaser.address,
+                                              payee_addr=deployer.address,
+                                              )
+
+@given(price_in_tokens=strategy("int256", max_value=-1, min_value=-99999))
+def test_GIVEN_price_computer_returning_negative_price_WHEN_price_computer_is_instantiated_THEN_instantiation_fails(price_in_tokens: int, *args, **kwargs):
+    # GIVEN
+    deployer: Account = accounts[0]
+    contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+    with pytest.raises(OverflowError):
+        contract_builder.get_fixed_price_price_computer(
+            price=price_in_tokens, account=deployer, force_deploy=True
+        )
+
+@given(price_in_tokens=strategy("uint256", min_value=1, max_value=9999))
+def test_GIVEN_price_computer_WHEN_paying_and_approving_less_tokens_than_necessary_THEN_purchase_fails(price_in_tokens: int, *args, **kwargs):
+    # GIVEN
+    deployer: Account = accounts[0]
+    purchaser: Account = accounts[1]
+    contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+
+    price_computer: FixedPricePriceComputer = contract_builder.get_fixed_price_price_computer(
+        price=price_in_tokens, account=deployer, force_deploy=True
+    )
+    assert price_in_tokens == price_computer.price()
+    tokens_to_approve: int = price_in_tokens - 1
+
+    payment_request: PaymentRequest = contract_builder.PaymentRequest
+    tx: TransactionReceipt = payment_request.createWithDynamicPrice(
+        price_computer.address,
+        ADDRESS_ZERO,
+        ADDRESS_ZERO,
+        {"from": deployer}
+    )
+
+    assert tx.status == Status.Confirmed
+    pr_token_id: int = tx.value
+
+    erc_20: MyERC20 = contract_builder.MyERC20
+    erc_20.transfer(
+        purchaser.address,
+        price_in_tokens,
+        {"from": deployer}
+    )
+
+    erc_20.approve(payment_request.address, tokens_to_approve, {"from": purchaser})
+
+    # WHEN / THEN
+    with pytest.raises(VirtualMachineError) as e:
+        payment_request.pay(
+            pr_token_id,
+            erc_20.address,
+            {"from": purchaser}
+        )
+        tx: TransactionReceipt = TransactionReceipt(e.value.txid)
+        assert tx.status == Status.Reverted
+
+    receipt_addr: str = payment_request.receipt()
+    receipt: Receipt = Contract.from_abi("Receipt", receipt_addr, Receipt.abi)
+    assert receipt.balanceOf(purchaser.address) == 0
+
+def test_GIVEN_post_payment_action_WHEN_payment_is_succesfull_THEN_payment_action_is_executed(*args, **kwargs):
+    pass

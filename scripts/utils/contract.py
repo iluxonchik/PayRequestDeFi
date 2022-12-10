@@ -1,6 +1,7 @@
+import random
 from typing import cast
 
-from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721
+from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721, FixedPricePriceComputer
 from brownie.network.account import Account
 from brownie.network.contract import ContractContainer, ProjectContract
 
@@ -49,6 +50,10 @@ class ContractBuilder:
         args: tuple = (NFTOwnerPaymentPrecondition, account, erc20TokenAddr, erc721TokenAddr)
         return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
+    @staticmethod
+    def get_fixed_price_price_computer(*, price: int, account: Account, force_deploy: bool = False) -> FixedPricePriceComputer:
+        args: tuple = (FixedPricePriceComputer, account, price)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
     @property
     def account(self) -> Account:
@@ -91,4 +96,13 @@ class ContractBuilder:
         precondition = cast(NFTOwnerPaymentPreconditionWithMeta, precondition)
 
         return precondition
+
+    @property
+    def FixedPricePaymentComputer(self) -> FixedPricePriceComputer:
+        price: int = random.randint(1, 99)
+        return self.get_fixed_price_price_computer(
+            price=price,
+            account=self._account,
+            force_deploy=self._force_deploy,
+        )
 
