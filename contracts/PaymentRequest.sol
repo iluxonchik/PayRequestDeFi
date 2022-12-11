@@ -13,21 +13,21 @@ import "contracts/Receipt.sol";
 // in the context below, "PaymentRequest" can be in place of ERC-721 and vice-versa.
 /// @notice PaymentRequest represents a request for a bill, to be paid by some party.
 contract PaymentRequest is ERC721 {
-    event BillPaid(
-        uint256 billId,
-        address buyer,
-        address seller,
+    event PaymentRequestPaid(
+        uint256 paymentRequestId,
+        address payer,
+        address payee,
         address token,
         uint256 amount
     );
     event PostPaymentActionExecuted(
-        uint256 billId,
+        uint256 paymentRequestId,
         address action,
         address receipt,
         uint256 receiptId
     );
     event PaymentPreconditionRejected(
-        uint256 billId,
+        uint256 paymentRequestId,
         address payer,
         address token
     );
@@ -41,8 +41,7 @@ contract PaymentRequest is ERC721 {
     mapping(address => uint256[]) public tokenIdsCreatedByAddr;
 
     // map of Payment Request ERC-721 to its prices
-    mapping(uint256 => mapping(address => Payment.TokenPriceMappingValue))
-        public tokenIdToPriceMap;
+    mapping(uint256 => mapping(address => Payment.TokenPriceMappingValue)) public tokenIdToPriceMap;
     mapping(uint256 => Payment.TokenPrice[]) public tokenIdToPriceArray;
     mapping(uint256 => address) public tokenIdToPostPaymentAction;
     mapping(uint256 => address) public tokenIdToPaymentPrecondition;
@@ -56,6 +55,38 @@ contract PaymentRequest is ERC721 {
     ) ERC721(name, symbol) {
         // you can either utilize an existing Receipt contract or deploy your own one
         receipt = Receipt(receiptAddr);
+    }
+
+    function getStaticTokenPrices(uint256 paymentRequestId) public view returns (Payment.TokenPrice[] memory){
+        return tokenIdToPriceArray[paymentRequestId];
+    }
+
+    function getStaticTokenPrice(uint256 paymentRequestId, address tokenAddr) public view returns (uint256) {
+        Payment.TokenPriceMappingValue memory tokenPrice = tokenIdToPriceMap[paymentRequestId][tokenAddr];
+        if (tokenPrice.isSet) {
+            return tokenPrice.tokenAmount;
+        } else {
+            revert("Payments in the provided token are not accepted.");
+        }
+
+    }
+
+    function getDynamicTokenPrice(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
+        address priceComputerAddr = tokenIdToPriceComputer[paymentRequestId];
+        if (priceComputerAddr == address(0)) {
+            revert("Dynamic token price computer not defined for token");
+        }
+        IPriceComputer priceComputer = IPriceComputer(priceComputerAddr);
+        return
+            priceComputer.getPriceForToken(
+                paymentRequestId,
+                tokenAddr,
+                msg.sender
+                );
+    }
+
+    function isPriceStatic(uint256 paymentRequestId) public view returns(bool) {
+        return tokenIdToPriceComputer[paymentRequestId] == address(0);
     }
 
         /* == BEGIN auxiliary procedures for creating the PaymentReqeust == */
@@ -114,30 +145,14 @@ contract PaymentRequest is ERC721 {
     /// does not accept payments in the provided token ID. You should always check the isSet variable of the
     /// reutned struct: if it false, the payments in the provided token are not defined.
     /// Both parts done in a single function to be more gas efficient.
-    function getPriceForTokenId(
+    function getTokenPrice(
         uint256 paymentRequestId,
-        address tokenAddr,
-        address payer
+        address tokenAddr
     ) public returns (uint256) {
-        address priceComputerAddr = tokenIdToPriceComputer[paymentRequestId];
-        if (priceComputerAddr == address(0)) {
-            Payment.TokenPriceMappingValue
-                memory tokenPriceMapping = tokenIdToPriceMap[paymentRequestId][
-                    tokenAddr
-                ];
-            if (tokenPriceMapping.isSet) {
-                return tokenPriceMapping.tokenAmount;
-            } else {
-                revert("Payments in the provided token are not accepted.");
-            }
+        if (isPriceStatic(paymentRequestId)) {
+            return getStaticTokenPrice(paymentRequestId, tokenAddr);
         } else {
-            IPriceComputer priceComputer = IPriceComputer(priceComputerAddr);
-            return
-                priceComputer.getPriceForToken(
-                    paymentRequestId,
-                    tokenAddr,
-                    payer
-                );
+            return getDynamicTokenPrice(paymentRequestId, tokenAddr);
         }
     }
 
@@ -214,7 +229,7 @@ contract PaymentRequest is ERC721 {
         address tokenAddr,
         uint256 tokenAmount
     ) internal returns (uint256) {
-        emit BillPaid(
+        emit PaymentRequestPaid(
             paymentRequestId,
             msg.sender,
             ownerOf(paymentRequestId),
@@ -317,7 +332,6 @@ contract PaymentRequest is ERC721 {
 
     function createWithDynamicPrice(
         address priceComputer,
-        address payTo,
         address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
@@ -372,10 +386,9 @@ contract PaymentRequest is ERC721 {
     {
         _checkPaymentPrecondition(paymentRequestId, tokenAddr);
 
-        uint256 tokenAmount = getPriceForTokenId(
+        uint256 tokenAmount = getTokenPrice(
             paymentRequestId,
-            tokenAddr,
-            msg.sender
+            tokenAddr
         );
 
         bool isTransferSuccess = _performTokenTransfer(
@@ -386,7 +399,7 @@ contract PaymentRequest is ERC721 {
 
         require(isTransferSuccess, "Could not transfer payment.");
 
-        // PaymentReqeust has been succesfully paid, emit receipt
+        // PaymentReqeust has been successfully paid, emit receipt
         uint256 receiptId = _emitReceipt(
             paymentRequestId,
             tokenAddr,
