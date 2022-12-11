@@ -15,8 +15,9 @@ library Payment {
     }
 
     struct Receipt {
+        address paymentRequestAddr;
         uint256 paymentRequestId;
-        address tokenId;
+        address tokenAddr;
         uint256 tokenAmount;
         address payerAddr;
         address payeeAddr;
