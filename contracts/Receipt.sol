@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "interfaces/IERC20.sol";
 
-
-
 import {Payment} from "./libraries/Payment.sol";
 
 contract Receipt is ERC721, Ownable {
@@ -19,15 +17,16 @@ contract Receipt is ERC721, Ownable {
 
     constructor(string memory name, string memory symbol) ERC721(name, symbol) {}
 
-    function create(uint256 paymentRequestId, address tokenId, uint256 tokenAmount, address payerAddr, address payeeAddr) public virtual returns (uint256) {
+    function create(uint256 paymentRequestId, address tokenAddr, uint256 tokenAmount, address payerAddr, address payeeAddr) public virtual returns (uint256) {
         uint256 ercTokenId = _tokenId.current();
-        _mint(msg.sender, ercTokenId);
+        _mint(payerAddr, ercTokenId);
         _tokenId.increment();
         // PaymentRequest contract address can be obtained by ownerOf(<receiptId>)
         receipt[ercTokenId] = Payment.Receipt(
             {
+                paymentRequestAddr: msg.sender,
                 paymentRequestId: paymentRequestId,
-                tokenId: tokenId,
+                tokenAddr: tokenAddr,
                 tokenAmount: tokenAmount,
                 payerAddr: payerAddr,
                 payeeAddr: payeeAddr
@@ -35,5 +34,9 @@ contract Receipt is ERC721, Ownable {
         );
         return ercTokenId;
 
+    }
+
+    function getReceipt(uint256 receiptId) public view returns (Payment.Receipt memory) {
+        return receipt[receiptId];
     }
 }
