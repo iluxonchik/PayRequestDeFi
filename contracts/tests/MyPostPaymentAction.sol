@@ -6,8 +6,8 @@ import "contracts/Receipt.sol";
 import {Payment} from "contracts/libraries/Payment.sol";
 
 contract MyPostPaymentAction is IPostPaymentAction {
-    event DynamicPricePPAExecuted(address receiptAddr, uint256 receiptId, address tokenAddr, uint256 tokenAmount, address payer, address payee, address paymentPreconditionAddr);
-    event StaticPricePPAExecuted(address receiptAddr, uint256 receiptId, address tokenAddr, uint256 tokenAmount, address payer, address payee, address paymentPreconditionAddr, address tokenAddr, uint256 price);
+    event DynamicPricePPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr);
+    event StaticPricePPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr, address paymentRequestTokenAddr, uint256 paymentRequestTokenPrice);
 
 
     function onPostPayment(address receiptAddr, uint256 receiptId) override external {
