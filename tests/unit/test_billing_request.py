@@ -5,7 +5,9 @@ The tests in this test file are fully self-contained, do not assume any state pr
 environment and can run on either fresh or already existing blockchain state.
 """
 import random
-from typing import Tuple, OrderedDict, Optional
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Tuple, OrderedDict, Optional, List, Dict, Type
 
 from brownie.network.event import EventDict, _EventItem
 from brownie.test import given, strategy
@@ -80,6 +82,7 @@ def assert_static_price_event_is_correct(*,
     }
 
 
+# Internal Structures Test
 def test_GIVEN_payment_request_WHEN_deployed_THEN_deployment_succeeds(*args, **kwargs):
     skip_if_not_local_blockchain()
 
@@ -102,236 +105,271 @@ def test_GIVEN_payment_request_creation_WHEN_no_prices_are_provided_THEN_payment
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
     pr: ProjectContract = contract_builder.PaymentRequest
 
-    erc20: ProjectContract = MyERC20.deploy("illya", "ILY", 1, {"from": deployer})
+    erc20: ProjectContract = contract_builder.MyERC20
 
     # WHEN
     with pytest.raises(VirtualMachineError):
         pr.createWithStaticPrice([], ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
 
-
-def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_request_created_THEN_internal_state_is_correct(*args, **kwargs):
+@example(price_in_tokens=0)
+@given(price_in_tokens=strategy("int256", min_value=0, max_value=99999))
+def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_request_created_THEN_internal_state_is_correct(price_in_tokens: int, *args, **kwargs):
     skip_if_not_local_blockchain()
 
     # GIVEN
-    TOKEN_AMOUNT: int = 1
     deployer: Account = accounts[0]
     interactor: Account = accounts[1]
 
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
-    pr: ProjectContract = contract_builder.PaymentRequest
+    payment_request: ProjectContract = contract_builder.PaymentRequest
 
-    erc20: ProjectContract = MyERC20.deploy("illya", "ILY", 1, {"from": deployer})
+    erc20: ProjectContract = contract_builder.MyERC20
 
     # WHEN
-    tx: TransactionReceipt = pr.createWithStaticPrice([[str(erc20.address), TOKEN_AMOUNT]], ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
+    STATIC_PRICES: List[list] = [[str(erc20.address), price_in_tokens]]
+    tx: TransactionReceipt = payment_request.createWithStaticPrice(STATIC_PRICES, ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
     assert tx.status == Status.Confirmed
+    payment_request_id: int = tx.value
 
     # THEN
-    assert pr.tokenIdsCreatedByAddr(interactor.address, 0) == 0
+    assert payment_request.balanceOf(interactor.address) == 1
+    assert payment_request.tokenOfOwnerByIndex(interactor.address, 0) == payment_request_id
     with pytest.raises(VirtualMachineError):
         # only one token created
-        pr.tokenIdsCreatedByAddr(interactor.address, 1)
+        payment_request.tokenOfOwnerByIndex(interactor.address, 1)
 
-    EXPECTED_PRICE_STRUCT: Tuple[int, bool] = (TOKEN_AMOUNT, True)
-    assert pr.tokenIdToPriceMap(0, erc20.address) == EXPECTED_PRICE_STRUCT
     # interactor.address is not a token payment address that was added
-    assert pr.tokenIdToPriceMap(0, interactor.address) == (0, False)
-    # price 0 for tokenId 0
-    assert pr.tokenIdToPriceArray(0, 0) == (erc20.address, TOKEN_AMOUNT)
+    with pytest.raises(VirtualMachineError):
+        payment_request.getStaticTokenPrice(payment_request_id, interactor.address)
 
     with pytest.raises(VirtualMachineError):
         # only one price added
-        pr.tokenIdToPriceArray(0, 1)
+        payment_request.getStaticTokenPriceByIndex(0, 1)
 
-def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_request_created_THEN_internal_state_is_correct(*args, **kwargs):
+    # test getters
+    assert payment_request.getStaticTokenPriceInfos(payment_request_id) == STATIC_PRICES
+    assert payment_request.getStaticTokenPrice(payment_request_id, erc20.address) == price_in_tokens
+
+    assert payment_request.isPriceStatic(payment_request_id) == True
+
+    with pytest.raises(VirtualMachineError):
+        payment_request.getDynamicTokenPrice(payment_request_id, erc20.address)
+
+
+@given(num_tokens=strategy("int256", min_value=1, max_value=23), use_separate_account_for_pr_creation=strategy("bool"))
+def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_request_created_THEN_internal_state_is_correct(num_tokens: int, use_separate_account_for_pr_creation: bool, *args, **kwargs):
     skip_if_not_local_blockchain()
 
+    @dataclass
+    class ERC20Token:
+        erc_20: ProjectContract
+        price: int
+
     # GIVEN
-    TOKEN_AMOUNT_ONE: int = 1
-    TOKEN_AMOUNT_TWO: int = 1
-    TOKEN_AMOUNT_THREE: int = 1
     deployer: Account = accounts[0]
     interactor: Account = accounts[1]
+    pr_token_creator: Account = interactor if use_separate_account_for_pr_creation else deployer
 
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
-    pr: ProjectContract = contract_builder.PaymentRequest
+    payment_request: ProjectContract = contract_builder.PaymentRequest
 
-    erc20_one: ProjectContract = MyERC20.deploy("illya", "ILY", 123, {"from": deployer})
-    erc20_two: ProjectContract = MyERC20.deploy("not illya", "NOTILY", 321, {"from": deployer})
-    erc20_three: ProjectContract = MyERC20.deploy("maybe illya", "MAYBEILY", 213, {"from": deployer})
+    erc_20_tokens: Dict[str, ERC20Token] = dict()
+    static_prices: List[List[str, int]] = list()
+
+    for i in range(num_tokens):
+        dict_key: str = f"erc_20_{i}"
+        erc_20: ProjectContract = contract_builder.MyERC20
+        erc_20_price: int = random.randint(0, 101)
+
+        erc_20_tokens[dict_key] = ERC20Token(erc_20=erc_20, price=erc_20_price)
+        static_prices.append(
+            [str(erc_20.address), erc_20_price]
+        )
 
     # WHEN
-    tx: TransactionReceipt = pr.createWithStaticPrice([[str(erc20_one.address), TOKEN_AMOUNT_ONE],
-                                        [str(erc20_two.address), TOKEN_AMOUNT_TWO],
-                                        [str(erc20_three.address), TOKEN_AMOUNT_THREE]],
+    tx: TransactionReceipt = payment_request.createWithStaticPrice(static_prices,
                                         ADDRESS_ZERO,
                                         ADDRESS_ZERO,
-                                       {"from": interactor})
+                                       {"from": pr_token_creator})
+
     assert tx.status == Status.Confirmed
+    payment_request_id: int = tx.value
 
     # THEN
-    assert pr.tokenIdsCreatedByAddr(interactor.address, 0) == 0
+    assert payment_request.balanceOf(pr_token_creator) == 1
+    assert payment_request.tokenOfOwnerByIndex(pr_token_creator, 0) == 0
 
     with pytest.raises(VirtualMachineError):
         # only one token created
-        pr.tokenIdsCreatedByAddr(interactor.address, 1)
-
-    EXPECTED_PRICE_STRUCT_ONE: Tuple[int, bool] = (TOKEN_AMOUNT_ONE, True)
-    EXPECTED_PRICE_STRUCT_TWO: Tuple[int, bool] = (TOKEN_AMOUNT_TWO, True)
-    EXPECTED_PRICE_STRUCT_THREE: Tuple[int, bool] = (TOKEN_AMOUNT_THREE, True)
-    assert pr.tokenIdToPriceMap(0, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
-    assert pr.tokenIdToPriceMap(0, erc20_two.address) == EXPECTED_PRICE_STRUCT_TWO
-    assert pr.tokenIdToPriceMap(0, erc20_three.address) == EXPECTED_PRICE_STRUCT_THREE
+        payment_request.tokenOfOwnerByIndex(pr_token_creator, 1)
 
     # interactor.address is not a token payment address that was added
-    assert pr.tokenIdToPriceMap(0, interactor.address) == (0, False)
+    with pytest.raises(VirtualMachineError):
+        payment_request.getStaticTokenPrice(payment_request_id, interactor.address)
 
-    # price 0 for tokenId 0
-    assert pr.tokenIdToPriceArray(0, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
-    assert pr.tokenIdToPriceArray(0, 1) == (erc20_two.address, TOKEN_AMOUNT_TWO)
-    assert pr.tokenIdToPriceArray(0, 2) == (erc20_three.address, TOKEN_AMOUNT_THREE)
+    # token prices for payment request ID
+    for index, key in enumerate(erc_20_tokens):
+        erc_20_token_dt: ERC20Token = erc_20_tokens[key]
+        assert payment_request.getStaticTokenPriceInfoByIndex(payment_request_id, index) == (erc_20_token_dt.erc_20.address, erc_20_token_dt.price)
 
     with pytest.raises(VirtualMachineError):
-        # only 3 prices were added
-        pr.tokenIdToPriceArray(0, 3)
+        # only len(erc_20_tokens) prices were added
+        payment_request.getStaticTokenPriceInfoByIndex(payment_request_id, len(erc_20_tokens) + 1)
 
-def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_request_created_by_multiple_interactors_THEN_internal_state_is_correct(*args, **kwargs):
+    # Test Getters
+    assert payment_request.getStaticTokenPriceInfos(payment_request_id) == static_prices
+    assert payment_request.isPriceStatic(payment_request_id) == True
+
+    for _, value in erc_20_tokens.items():
+        assert payment_request.getStaticTokenPrice(payment_request_id, value.erc_20.address) == value.price
+
+
+        with pytest.raises(VirtualMachineError):
+            payment_request.getDynamicTokenPrice(payment_request_id, value.erc_20.address)
+
+
+@given(num_deployers=strategy("uint256", min_value=2, max_value=10))
+def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_request_created_by_multiple_interactors_THEN_internal_state_is_correct(num_deployers: int, *args, **kwargs):
     skip_if_not_local_blockchain()
 
-    # GIVEN
+    # TODO: finalize rewrite
+
+    # GIVEN / WHEN
+    @dataclass
+    class ERC20Token:
+        erc_20: ProjectContract
+        price: int
+
+    TokenPrices: Type = List[List[str, int]]
+
     TOKEN_AMOUNT_ONE: int = 1
     TOKEN_AMOUNT_TWO: int = 1
     TOKEN_AMOUNT_THREE: int = 1
     deployer: Account = accounts[0]
-    interactor_one: Account = accounts[1]
-    interactor_two: Account = accounts[2]
-    interactor_three: Account = accounts[3]
-
+    deployer_accounts: List[Account] = [accounts[i] for i in range(num_deployers)]
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
-    pr: ProjectContract = contract_builder.PaymentRequest
+    account_to_list_of_token_prices: Dict[int, List[TokenPrices]] = defaultdict(list)
+    payment_request: ProjectContract = contract_builder.PaymentRequest
 
-    erc20_one: ProjectContract = MyERC20.deploy("illya", "ILY", 123, {"from": deployer})
-    erc20_two: ProjectContract = MyERC20.deploy("not illya", "NOTILY", 321, {"from": deployer})
-    erc20_three: ProjectContract = MyERC20.deploy("maybe illya", "MAYBEILY", 213, {"from": deployer})
+    total_num_tokens: int = 0
+    # For each one of the accounts, create between 1 and 101 PaymentRequests, with each PaymentRequest containing
+    # between 1 and 1001 (token, token_price) pairs
+    for i in range(num_deployers):
+        num_payment_requests_for_account: int = random.randint(1, 101)
 
-    # WHEN
+        for _ in range(num_payment_requests_for_account):
+            tokens_for_account: List[ERC20Token] = list()
+            num_tokens_for_payment_request: int = random.randint(1, 1001)
+            for _ in range(num_tokens_for_payment_request):
+                erc_20: ProjectContract = contract_builder.MyERC20
+                erc_20_price: int = random.randint(0, 2**32)
+                tokens_for_account.append(ERC20Token(erc_20=erc_20, price=erc_20_price))
 
-    ## first interactor
-    tx1: TransactionReceipt = pr.createWithStaticPrice([[str(erc20_one.address), TOKEN_AMOUNT_ONE],
-                                        [str(erc20_two.address), TOKEN_AMOUNT_TWO],
-                                        [str(erc20_three.address), TOKEN_AMOUNT_THREE]],
-                                        ADDRESS_ZERO,
-                                        ADDRESS_ZERO,
-                                        {"from": interactor_one})
+            token_prices: List[List[str, int]] = [[erc20token.erc_20.address, erc20token.price] for erc20token in tokens_for_account]
 
-    assert tx1.status == Status.Confirmed
+            tx: TransactionReceipt = payment_request.createWithStaticPrice(
+                token_prices,
+                ADDRESS_ZERO,
+                ADDRESS_ZERO,
+                {"from": deployer_accounts[i]}
+            )
+            assert tx.status == Status.Confirmed
+            total_num_tokens += 1
 
-    ## second intreactor
-    tx2: TransactionReceipt = pr.createWithStaticPriceFor([[str(erc20_one.address), TOKEN_AMOUNT_ONE]],
-                                        interactor_two.address,
-                                        ADDRESS_ZERO,
-                                        ADDRESS_ZERO,
-                                        {"from": interactor_two})
-    assert tx2.status == Status.Confirmed
-
-    ### second interactor creates one more payment request, same as above
-    tx2 = pr.createWithStaticPrice([[str(erc20_one.address), TOKEN_AMOUNT_ONE]],
-                    ADDRESS_ZERO,
-                    ADDRESS_ZERO,
-                    {"from": interactor_two})
-    assert tx2.status == Status.Confirmed
-
-    tx3: TransactionReceipt = pr.createWithStaticPriceFor([
-        [str(erc20_one.address), TOKEN_AMOUNT_ONE],
-        [str(erc20_three.address), TOKEN_AMOUNT_THREE],
-        ],
-        interactor_three.address,
-        ADDRESS_ZERO,
-        ADDRESS_ZERO,
-        {"from": interactor_two}
-    )
-
-    assert tx3.status == Status.Confirmed
-
+            account_to_list_of_token_prices[i].append(token_prices)
 
     # THEN
+
+    assert payment_request.totalSupppy() == total_num_tokens
+
+    # ensure number of created tokens correct for each account
+    for account_index in range(len(deployer_accounts)):
+        account: Account = deployer_accounts[account_index]
+        num_payment_requests_created: int = payment_request.balanceOf(deployer_accounts[account_index].address)
+        assert num_payment_requests_created == len(account_to_list_of_token_prices[account_index])
+
+        for token_index in range(num_payment_requests_created):
+            token_id: int = payment_request.tokenOfOwnerByIndex(account.address, token_index)
+
+
+
     EXPECTED_PRICE_STRUCT_ONE: Tuple[int, bool] = (TOKEN_AMOUNT_ONE, True)
     EXPECTED_PRICE_STRUCT_TWO: Tuple[int, bool] = (TOKEN_AMOUNT_TWO, True)
     EXPECTED_PRICE_STRUCT_THREE: Tuple[int, bool] = (TOKEN_AMOUNT_THREE, True)
 
     ## checks for first interactor
-    assert pr.tokenIdsCreatedByAddr(interactor_one.address, 0) == 0
+    assert payment_request.tokenIdsCreatedByAddr(interactor_one.address, 0) == 0
 
     with pytest.raises(VirtualMachineError):
         # only one token created
-        pr.tokenIdsCreatedByAddr(interactor_one.address, 1)
+        payment_request.tokenIdsCreatedByAddr(interactor_one.address, 1)
 
-    assert pr.tokenIdToPriceMap(0, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
-    assert pr.tokenIdToPriceMap(0, erc20_two.address) == EXPECTED_PRICE_STRUCT_TWO
-    assert pr.tokenIdToPriceMap(0, erc20_three.address) == EXPECTED_PRICE_STRUCT_THREE
+    assert payment_request.tokenIdToPriceMap(0, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
+    assert payment_request.tokenIdToPriceMap(0, erc20_two.address) == EXPECTED_PRICE_STRUCT_TWO
+    assert payment_request.tokenIdToPriceMap(0, erc20_three.address) == EXPECTED_PRICE_STRUCT_THREE
 
     # interactor.address is not a token payment address that was added
-    assert pr.tokenIdToPriceMap(0, interactor_one.address) == (0, False)
+    assert payment_request.tokenIdToPriceMap(0, interactor_one.address) == (0, False)
 
     # price 0 for tokenId 0
-    assert pr.tokenIdToPriceArray(0, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
-    assert pr.tokenIdToPriceArray(0, 1) == (erc20_two.address, TOKEN_AMOUNT_TWO)
-    assert pr.tokenIdToPriceArray(0, 2) == (erc20_three.address, TOKEN_AMOUNT_THREE)
+    assert payment_request.tokenIdToPriceArray(0, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
+    assert payment_request.tokenIdToPriceArray(0, 1) == (erc20_two.address, TOKEN_AMOUNT_TWO)
+    assert payment_request.tokenIdToPriceArray(0, 2) == (erc20_three.address, TOKEN_AMOUNT_THREE)
 
     with pytest.raises(VirtualMachineError):
         # only 3 prices were added
-        pr.tokenIdToPriceArray(0, 3)
+        payment_request.tokenIdToPriceArray(0, 3)
 
     ## checks for second interactor
-    assert pr.tokenIdsCreatedByAddr(interactor_two.address, 0) == 1
+    assert payment_request.tokenIdsCreatedByAddr(interactor_two.address, 0) == 1
     # second interactor created one more NFT for itself
-    assert pr.tokenIdsCreatedByAddr(interactor_two.address, 1) == 2
+    assert payment_request.tokenIdsCreatedByAddr(interactor_two.address, 1) == 2
     # second interactor created one token for interactor 3
-    assert pr.tokenIdsCreatedByAddr(interactor_two.address, 2) == 3
+    assert payment_request.tokenIdsCreatedByAddr(interactor_two.address, 2) == 3
 
     with pytest.raises(VirtualMachineError):
         # only threes tokens created
-        pr.tokenIdsCreatedByAddr(interactor_one.address, 3)
+        payment_request.tokenIdsCreatedByAddr(interactor_one.address, 3)
     # token IDs created by interactor 2: 1, 2, 3
     # token IDs owned by interactor 2: 1, 2 | both contain the same price
-    assert pr.tokenIdToPriceMap(1, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
-    assert pr.tokenIdToPriceMap(2, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
+    assert payment_request.tokenIdToPriceMap(1, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
+    assert payment_request.tokenIdToPriceMap(2, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
 
     # erc20_two.address is not a token payment address that was added
-    assert pr.tokenIdToPriceMap(1, erc20_two.address) == (0, False)
+    assert payment_request.tokenIdToPriceMap(1, erc20_two.address) == (0, False)
 
     # prices 0 tokenId 1 and 2
-    assert pr.tokenIdToPriceArray(1, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
-    assert pr.tokenIdToPriceArray(2, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
+    assert payment_request.tokenIdToPriceArray(1, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
+    assert payment_request.tokenIdToPriceArray(2, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
 
     with pytest.raises(VirtualMachineError):
         # only 1 price was added to token 1
-        pr.tokenIdToPriceArray(1, 1)
+        payment_request.tokenIdToPriceArray(1, 1)
 
     with pytest.raises(VirtualMachineError):
         # only 1 price was added to token 2
-        pr.tokenIdToPriceArray(2, 1)
+        payment_request.tokenIdToPriceArray(2, 1)
 
     ## checks for third interactor
     with pytest.raises(VirtualMachineError):
         # the token was created by second interactor
-        pr.tokenIdsCreatedByAddr(interactor_three.address, 0)
+        payment_request.tokenIdsCreatedByAddr(interactor_three.address, 0)
 
     # token IDs created by interactor 3: _
     # token IDs owned by interactor 3: 3
-    assert pr.tokenIdToPriceMap(3, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
-    assert pr.tokenIdToPriceMap(3, erc20_three.address) == EXPECTED_PRICE_STRUCT_THREE
+    assert payment_request.tokenIdToPriceMap(3, erc20_one.address) == EXPECTED_PRICE_STRUCT_ONE
+    assert payment_request.tokenIdToPriceMap(3, erc20_three.address) == EXPECTED_PRICE_STRUCT_THREE
 
     # erc20_two.address is not a token payment address that was added
-    assert pr.tokenIdToPriceMap(3, erc20_two.address) == (0, False)
+    assert payment_request.tokenIdToPriceMap(3, erc20_two.address) == (0, False)
 
     # prices 0 and 1 of tokenId 3
-    assert pr.tokenIdToPriceArray(3, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
-    assert pr.tokenIdToPriceArray(3, 1) == (erc20_three.address, TOKEN_AMOUNT_THREE)
+    assert payment_request.tokenIdToPriceArray(3, 0) == (erc20_one.address, TOKEN_AMOUNT_ONE)
+    assert payment_request.tokenIdToPriceArray(3, 1) == (erc20_three.address, TOKEN_AMOUNT_THREE)
 
     with pytest.raises(VirtualMachineError):
         # only 2 price were added for token 3
-        pr.tokenIdToPriceArray(3, 2)
+        payment_request.tokenIdToPriceArray(3, 2)
 
 # Payment Request Enable/Disable Tests
 def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THEN_it_succeeds_and_correct_events_are_emitted(*args, **kwargs):
@@ -720,6 +758,7 @@ def test_GIVEN_price_computer_WHEN_paying_and_approving_less_tokens_than_necessa
     receipt: Receipt = Contract.from_abi("Receipt", receipt_addr, Receipt.abi)
     assert receipt.balanceOf(purchaser.address) == 0
 
+# Payment Post Action Test
 @example(price_in_tokens=0, use_separate_account_for_pay=True)
 @example(price_in_tokens=0, use_separate_account_for_pay=False)
 @given(price_in_tokens=strategy("uint256", min_value=0, max_value=9999), use_separate_account_for_pay=strategy("bool"))
