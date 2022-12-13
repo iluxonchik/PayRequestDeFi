@@ -24,7 +24,7 @@ contract MyPostPaymentAction is IPostPaymentAction {
         address paymentPreconditionAddr = paymentRequest.tokenIdToPaymentPrecondition(paymentRequestId);
 
         if (paymentRequest.isPriceStatic(paymentRequestId)) {
-            Payment.TokenPrice[] memory tokenPrices = paymentRequest.getStaticTokenPrices(paymentRequestId);
+            Payment.TokenPriceInfo[] memory tokenPrices = paymentRequest.getStaticTokenPriceInfos(paymentRequestId);
             address firstTokenAddr = tokenPrices[0].tokenAddr;
             uint256 tokenPrice = paymentRequest.getStaticTokenPrice(paymentRequestId, firstTokenAddr);
             emit StaticPricePPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr, firstTokenAddr, tokenPrice);

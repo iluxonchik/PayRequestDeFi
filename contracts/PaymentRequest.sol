@@ -1,6 +1,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "interfaces/IERC20.sol";
 import "interfaces/IPostPaymentAction.sol";
@@ -12,7 +13,7 @@ import "contracts/Receipt.sol";
 
 // in the context below, "PaymentRequest" can be in place of ERC-721 and vice-versa.
 /// @notice PaymentRequest represents a request for a bill, to be paid by some party.
-contract PaymentRequest is ERC721 {
+contract PaymentRequest is ERC721Enumerable {
     event PaymentRequestPaid(
         uint256 paymentRequestId,
         address payer,
@@ -38,15 +39,15 @@ contract PaymentRequest is ERC721 {
     Counters.Counter private _tokenId;
     Receipt public receipt;
 
-    mapping(address => uint256[]) public tokenIdsCreatedByAddr;
-
     // map of Payment Request ERC-721 to its prices
-    mapping(uint256 => mapping(address => Payment.TokenPriceMappingValue)) public tokenIdToPriceMap;
-    mapping(uint256 => Payment.TokenPrice[]) public tokenIdToPriceArray;
+    mapping(uint256 => mapping(address => Payment.TokenPriceMappingValue)) internal tokenIdToPriceMap;
+    mapping(uint256 => Payment.TokenPriceInfo[]) internal tokenIdToPriceArray;
+    mapping(uint256 => address[]) internal tokenIdToAcceptedStaticTokens;
+    // TODO: make below internal and offer getters
     mapping(uint256 => address) public tokenIdToPostPaymentAction;
     mapping(uint256 => address) public tokenIdToPaymentPrecondition;
     mapping(uint256 => address) public tokenIdToPriceComputer;
-    mapping(uint256 => bool) public tokenIdToEnabled;
+    mapping(uint256 => bool) internal tokenIdToEnabled;
 
     constructor(
         string memory name,
@@ -57,25 +58,67 @@ contract PaymentRequest is ERC721 {
         receipt = Receipt(receiptAddr);
     }
 
-    function getStaticTokenPrices(uint256 paymentRequestId) public view returns (Payment.TokenPrice[] memory){
+    // Static/Dynamic Token Price Distinction
+    function isPriceStatic(uint256 paymentRequestId) public view returns(bool) {
+        return tokenIdToPriceComputer[paymentRequestId] == address(0);
+    }
+
+    function isPriceDynamic(uint256 paymentRequestId) public view returns(bool) {
+        return tokenIdToPriceComputer[paymentRequestId] != address(0);
+    }
+
+    // Static Token Count
+    function getNumberOfAcceptedStaticTokens(uint256 paymentRequestId) public view returns (uint256) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
+        return tokenIdToAcceptedStaticTokens[paymentRequestId].length;
+    }
+
+    // Static Token Address Getters
+    function getStaticTokens(uint256 paymentRequestId) public view returns (address[] memory) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
+        return tokenIdToAcceptedStaticTokens[paymentRequestId];
+    }
+
+    function getStaticTokenByIndex(uint256 paymentRequestId, uint256 index) public view returns (address) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
+        return tokenIdToAcceptedStaticTokens[paymentRequestId][index];
+    }
+
+    // Static Payment.TokenPriceInfo Gettrs
+    function getStaticTokenPriceInfos(uint256 paymentRequestId) public view returns (Payment.TokenPriceInfo[] memory) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
         return tokenIdToPriceArray[paymentRequestId];
     }
 
-    function getStaticTokenPrice(uint256 paymentRequestId, address tokenAddr) public view returns (uint256) {
-        Payment.TokenPriceMappingValue memory tokenPrice = tokenIdToPriceMap[paymentRequestId][tokenAddr];
-        if (tokenPrice.isSet) {
-            return tokenPrice.tokenAmount;
-        } else {
-            revert("Payments in the provided token are not accepted.");
-        }
-
+    function getStaticTokenPriceInfoByIndex(uint256 paymentRequestId, uint256 index) public view returns (Payment.TokenPriceInfo memory) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
+        return tokenIdToPriceArray[paymentRequestId][index];
     }
 
+    // Static uint256 Price Getters
+    function getStaticTokenPriceByIndex(uint256 paymentRequestId, uint256 index) public view returns (uint256) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
+        return tokenIdToPriceArray[paymentRequestId][index].tokenAmount;
+    }
+
+    function getStaticTokenPrice(uint256 paymentRequestId, address tokenAddr) public view returns (uint256) {
+        require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
+
+        Payment.TokenPriceMappingValue memory tokenPrice = tokenIdToPriceMap[paymentRequestId][tokenAddr];
+        
+        require(tokenPrice.isSet, "Payments in the provided token are not accepted.");
+        
+        return tokenPrice.tokenAmount;
+    }
+
+    /// @notice Get the price when a dynamic pricing scheme is in use. This is the only method available in this
+    /// contract to query for the dynamic price of a token. Since its logic is arbitrary, other methods may be
+    /// infeasible to implement. An example of that would be an IPriceComputer that accepts any token converted
+    /// to a stablecoin such as USDT. Operations like listing all of the accepted token IDs becomes impractical
     function getDynamicTokenPrice(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
+        require(isPriceDynamic(paymentRequestId), "Price of the provided PaymentRequest ID is not dynamic.");
+
         address priceComputerAddr = tokenIdToPriceComputer[paymentRequestId];
-        if (priceComputerAddr == address(0)) {
-            revert("Dynamic token price computer not defined for token");
-        }
         IPriceComputer priceComputer = IPriceComputer(priceComputerAddr);
         return
             priceComputer.getPriceForToken(
@@ -83,10 +126,6 @@ contract PaymentRequest is ERC721 {
                 tokenAddr,
                 msg.sender
                 );
-    }
-
-    function isPriceStatic(uint256 paymentRequestId) public view returns(bool) {
-        return tokenIdToPriceComputer[paymentRequestId] == address(0);
     }
 
         /* == BEGIN auxiliary procedures for creating the PaymentReqeust == */
@@ -101,20 +140,19 @@ contract PaymentRequest is ERC721 {
     /// scope of the initial version of this module.
     function _storePricesInInternalStructures(
         uint256 tokenId,
-        Payment.TokenPrice[] memory prices
+        Payment.TokenPriceInfo[] memory prices
     ) internal {
-        if (prices.length == 0) {
-            revert("Product prices cannot be empty.");
-        }
+        require(prices.length > 0, "Product prices cannot be empty.");
 
         for (uint256 i = 0; i < prices.length; i++) {
-            Payment.TokenPrice memory price = prices[i];
+            Payment.TokenPriceInfo memory price = prices[i];
             tokenIdToPriceMap[tokenId][price.tokenAddr] = Payment
                 .TokenPriceMappingValue({
                     tokenAmount: price.tokenAmount,
                     isSet: true
                 });
             tokenIdToPriceArray[tokenId].push(price);
+            tokenIdToAcceptedStaticTokens[tokenId].push(price.tokenAddr);
         }
     }
 
@@ -126,7 +164,6 @@ contract PaymentRequest is ERC721 {
         // the payments will be done to the owner of the ERC720. the "lending" of payTo should be done via another SC
         _mint(payTo, tokenId);
 
-        tokenIdsCreatedByAddr[msg.sender].push(tokenId);
         tokenIdToPostPaymentAction[tokenId] = postPaymentAction;
         tokenIdToEnabled[tokenId] = true;
         tokenIdToPaymentPrecondition[tokenId] = paymentPrecondition;
@@ -295,7 +332,7 @@ contract PaymentRequest is ERC721 {
     // are better, as they are also self-documenting.
 
     function createWithStaticPriceFor(
-        Payment.TokenPrice[] memory prices,
+        Payment.TokenPriceInfo[] memory prices,
         address payTo,
         address paymentPrecondition,
         address postPaymentAction
@@ -323,7 +360,7 @@ contract PaymentRequest is ERC721 {
     }
 
     function createWithStaticPrice(
-        Payment.TokenPrice[] memory prices,
+        Payment.TokenPriceInfo[] memory prices,
         address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
@@ -382,7 +419,7 @@ contract PaymentRequest is ERC721 {
     function pay(uint256 paymentRequestId, address tokenAddr)
         external
         paymentRequestIsEnabled(paymentRequestId)
-        returns (bool)
+        returns (uint256)
     {
         _checkPaymentPrecondition(paymentRequestId, tokenAddr);
 
@@ -407,6 +444,6 @@ contract PaymentRequest is ERC721 {
         );
         _executePostPaymentAction(paymentRequestId, receiptId);
 
-        return true;
+        return receiptId;
     }
 }

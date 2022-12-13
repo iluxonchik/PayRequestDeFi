@@ -9,7 +9,7 @@ library Payment {
     }
 
     /// @notice Token price interface. Contains the address of the token and its amount. Useful abstraction for pulic input paramaters.
-    struct TokenPrice {
+    struct TokenPriceInfo {
         address tokenAddr;
         uint256 tokenAmount;
     }
