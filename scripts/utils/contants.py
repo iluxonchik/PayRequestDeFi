@@ -5,3 +5,7 @@ LOCAL_BLOCKCHAIN_ENVIRONMENTS: List[str] = [
     "ganache-local",
     "development",
 ]
+
+class Events:
+    STATIC_PRICE_PPA_EXECUTED: str = "StaticPricePPAExecuted"
+    DYNAMIC_PRICE_PPA_EXECUTED: str = "DynamicPricePPAExecuted"

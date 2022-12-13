@@ -5,19 +5,21 @@ The tests in this test file are fully self-contained, do not assume any state pr
 environment and can run on either fresh or already existing blockchain state.
 """
 import random
-from typing import Tuple
+from typing import Tuple, OrderedDict, Optional
 
+from brownie.network.event import EventDict, _EventItem
 from brownie.test import given, strategy
 import pytest
 from brownie import network, accounts
-from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition, FixedPricePriceComputer
+from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition, FixedPricePriceComputer, MyPostPaymentAction
 from brownie.exceptions import VirtualMachineError
 from brownie.network.account import Account
 from brownie.network.contract import ProjectContract, Contract
 from brownie.network.transaction import TransactionReceipt, Status
+from hypothesis import example
 from web3.constants import ADDRESS_ZERO
 
-from scripts.utils.contants import LOCAL_BLOCKCHAIN_ENVIRONMENTS
+from scripts.utils.contants import LOCAL_BLOCKCHAIN_ENVIRONMENTS, Events
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.types import NFTOwnerPaymentPreconditionMeta, NFTOwnerPaymentPreconditionWithMeta
 
@@ -29,6 +31,54 @@ def skip_if_not_local_blockchain():
 
 def assert_receipt_metadata_is_correct(*, receipt: Receipt, receipt_id: int, payment_request_addr: str, payment_request_id: int, token_addr: str, token_amount: int, payer_addr: str, payee_addr: str):
     assert receipt.receipt(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr)
+
+def assert_dynamic_price_event_is_correct(*,
+                                         events: Optional[EventDict],
+                                         receipt_addr: str,
+                                         receipt_id: int,
+                                         receipt_token_addr: str,
+                                         receipt_token_amount: int,
+                                         payer: str, payee: str,
+                                         payment_precondition_addr: str):
+    if not events:
+        pytest.fail("Passed events are None or empty")
+
+    event_data: _EventItem = events[Events.DYNAMIC_PRICE_PPA_EXECUTED]
+    assert event_data == {
+        "receiptAddr": receipt_addr,
+        "receiptId": receipt_id,
+        "receiptTokenAddr": receipt_token_addr,
+        "receiptTokenAmount": receipt_token_amount,
+        "payer": payer,
+        "payee": payee,
+        "paymentPreconditionAddr": payment_precondition_addr,
+    }
+def assert_static_price_event_is_correct(*,
+                                         events: Optional[EventDict],
+                                         receipt_addr: str,
+                                         receipt_id: int,
+                                         receipt_token_addr: str,
+                                         receipt_token_amount: int,
+                                         payer: str, payee: str,
+                                         payment_precondition_addr: str,
+                                         payment_request_token_addr: str,
+                                         payment_request_token_price: int):
+    if not events:
+        pytest.fail("Passed events are None or empty")
+
+    event_data: _EventItem = events[Events.STATIC_PRICE_PPA_EXECUTED]
+    assert event_data == {
+        "receiptAddr": receipt_addr,
+        "receiptId": receipt_id,
+        "receiptTokenAddr": receipt_token_addr,
+        "receiptTokenAmount": receipt_token_amount,
+        "payer": payer,
+        "payee": payee,
+        "paymentPreconditionAddr": payment_precondition_addr,
+        "paymentRequestTokenAddr": payment_request_token_addr,
+        "paymentRequestTokenPrice": payment_request_token_price,
+    }
+
 
 def test_GIVEN_payment_request_WHEN_deployed_THEN_deployment_succeeds(*args, **kwargs):
     skip_if_not_local_blockchain()
@@ -670,5 +720,124 @@ def test_GIVEN_price_computer_WHEN_paying_and_approving_less_tokens_than_necessa
     receipt: Receipt = Contract.from_abi("Receipt", receipt_addr, Receipt.abi)
     assert receipt.balanceOf(purchaser.address) == 0
 
-def test_GIVEN_post_payment_action_WHEN_payment_is_succesfull_THEN_payment_action_is_executed(*args, **kwargs):
-    pass
+@example(price_in_tokens=0, use_separate_account_for_pay=True)
+@example(price_in_tokens=0, use_separate_account_for_pay=False)
+@given(price_in_tokens=strategy("uint256", min_value=0, max_value=9999), use_separate_account_for_pay=strategy("bool"))
+def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_THEN_payment_action_is_executed(price_in_tokens: int, use_separate_account_for_pay: bool, *args, **kwargs):
+    # GIVEN
+
+    deployer: Account = accounts[0]
+    payee: Account = accounts[1]
+    contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+    post_payment_action: MyPostPaymentAction = contract_builder.MyPostPaymentAction
+    payment_request: PaymentRequest = contract_builder.PaymentRequest
+    erc_20_first: MyERC20 = contract_builder.MyERC20
+    erc_20_second: MyERC20 = contract_builder.MyERC20
+    payee_from_account: Account = payee if use_separate_account_for_pay else deployer
+
+    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+        [
+            [str(erc_20_first.address), price_in_tokens],
+            [str(erc_20_second.address), price_in_tokens]
+        ],
+        ADDRESS_ZERO,
+        post_payment_action.address,
+    )
+    assert tx.status == Status.Confirmed
+
+    payment_request_id: int = tx.value
+
+    # WHEN
+    if use_separate_account_for_pay:
+        erc_20_second.transfer(payee.address, price_in_tokens, {"from": deployer})
+
+    erc_20_second.approve(payment_request.address, price_in_tokens, {"from": payee_from_account})
+
+    tx = payment_request.pay(
+        payment_request_id,
+        erc_20_second.address,
+        {"from": payee_from_account}
+    )
+
+    # THEN
+    assert tx.status == Status.Confirmed
+    assert Events.STATIC_PRICE_PPA_EXECUTED in tx.events
+    assert Events.DYNAMIC_PRICE_PPA_EXECUTED not in tx.events
+
+    receipt_id: int = tx.value
+    receipt_addr: str = payment_request.receipt()
+
+    assert_static_price_event_is_correct(
+        events=tx.events,
+        receipt_addr=receipt_addr,
+        receipt_id=receipt_id,
+        receipt_token_addr=erc_20_second.address,
+        receipt_token_amount=price_in_tokens,
+        payer=payee_from_account.address,
+        payee=deployer.address,
+        payment_precondition_addr=ADDRESS_ZERO,
+        payment_request_token_addr=erc_20_first,
+        payment_request_token_price=price_in_tokens,
+    )
+
+
+@example(price_in_tokens=0, use_separate_account_for_pay=True)
+@example(price_in_tokens=0, use_separate_account_for_pay=False)
+@given(price_in_tokens=strategy("uint256", min_value=0, max_value=9999), use_separate_account_for_pay=strategy("bool"))
+def test_GIVEN_dynamic_prices_and_post_payment_action_WHEN_payment_is_succesfull_THEN_payment_action_is_executed(price_in_tokens: int, use_separate_account_for_pay: bool, *args, **kwargs):
+    # GIVEN
+
+    deployer: Account = accounts[0]
+    payee: Account = accounts[1]
+    contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
+    post_payment_action: MyPostPaymentAction = contract_builder.MyPostPaymentAction
+    payment_request: PaymentRequest = contract_builder.PaymentRequest
+    erc_20: MyERC20 = contract_builder.MyERC20
+    payee_from_account: Account = payee if use_separate_account_for_pay else deployer
+
+    price_computer: FixedPricePriceComputer = contract_builder.get_fixed_price_price_computer(
+        price=price_in_tokens, account=deployer, force_deploy=True
+    )
+    assert price_in_tokens == price_computer.price()
+
+    tx: TransactionReceipt = payment_request.createWithDynamicPrice(
+        price_computer.address,
+        ADDRESS_ZERO,
+        post_payment_action.address,
+    )
+
+    assert tx.status == Status.Confirmed
+
+    payment_request_id: int = tx.value
+
+    # WHEN
+    if use_separate_account_for_pay:
+        erc_20.transfer(payee.address, price_in_tokens, {"from": deployer})
+
+    erc_20.approve(payment_request.address, price_in_tokens, {"from": payee_from_account})
+
+    tx = payment_request.pay(
+        payment_request_id,
+        erc_20.address,
+        {"from": payee_from_account}
+    )
+
+    # THEN
+    assert tx.status == Status.Confirmed
+    assert Events.STATIC_PRICE_PPA_EXECUTED not in tx.events
+    assert Events.DYNAMIC_PRICE_PPA_EXECUTED in tx.events
+
+    receipt_id: int = tx.value
+    receipt_addr: str = payment_request.receipt()
+
+    assert_dynamic_price_event_is_correct(
+        events=tx.events,
+        receipt_addr=receipt_addr,
+        receipt_id=receipt_id,
+        receipt_token_addr=erc_20.address,
+        receipt_token_amount=price_in_tokens,
+        payer=payee_from_account.address,
+        payee=deployer.address,
+        payment_precondition_addr=ADDRESS_ZERO,
+    )
+
