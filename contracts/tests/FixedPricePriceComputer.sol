@@ -8,7 +8,7 @@ contract FixedPricePriceComputer is IPriceComputer {
         price = _price;
     }
 
-    function getPriceForToken(uint256 paymentRequestId, address tokenAddr, address payer) external returns (uint256) {
+    function getPriceForToken(uint256 paymentRequestId, address tokenAddr, address payer) external override returns (uint256) {
         return price;
     }
 }

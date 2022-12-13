@@ -28,8 +28,9 @@ contract MyPostPaymentAction is IPostPaymentAction {
             address firstTokenAddr = tokenPrices[0].tokenAddr;
             uint256 tokenPrice = paymentRequest.getStaticTokenPrice(paymentRequestId, firstTokenAddr);
             emit StaticPricePPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr, firstTokenAddr, tokenPrice);
+        } else {
+            emit DynamicPricePPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr);
         }
 
-        emit DynamicPricePPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr);
     }
 }
