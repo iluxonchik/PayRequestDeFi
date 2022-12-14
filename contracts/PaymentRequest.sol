@@ -68,7 +68,7 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     // Static Token Count
-    function getNumberOfAcceptedStaticTokens(uint256 paymentRequestId) public view returns (uint256) {
+    function getNumberOfStaticTokens(uint256 paymentRequestId) public view returns (uint256) {
         require(isPriceStatic(paymentRequestId), "Price of the provided PaymentRequest ID is not static.");
         return tokenIdToAcceptedStaticTokens[paymentRequestId].length;
     }
@@ -117,15 +117,13 @@ contract PaymentRequest is ERC721Enumerable {
     /// to a stablecoin such as USDT. Operations like listing all of the accepted token IDs becomes impractical
     function getDynamicTokenPrice(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
         require(isPriceDynamic(paymentRequestId), "Price of the provided PaymentRequest ID is not dynamic.");
-
         address priceComputerAddr = tokenIdToPriceComputer[paymentRequestId];
         IPriceComputer priceComputer = IPriceComputer(priceComputerAddr);
-        return
-            priceComputer.getPriceForToken(
+        return priceComputer.getPriceForToken(
                 paymentRequestId,
                 tokenAddr,
                 msg.sender
-                );
+            );
     }
 
         /* == BEGIN auxiliary procedures for creating the PaymentReqeust == */
