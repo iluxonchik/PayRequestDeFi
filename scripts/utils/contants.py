@@ -7,5 +7,5 @@ LOCAL_BLOCKCHAIN_ENVIRONMENTS: List[str] = [
 ]
 
 class Events:
-    STATIC_PRICE_PPA_EXECUTED: str = "StaticPricePPAExecuted"
-    DYNAMIC_PRICE_PPA_EXECUTED: str = "DynamicPricePPAExecuted"
+    STATIC_TOKEN_AMOUNT_PPA_EXECUTED: str = "StaticTokenAmountPPAExecuted"
+    DYNAMIC_TOKEN_AMOUNT_PPA_EXECUTED: str = "DynamicTokenAmountPPAExecuted"

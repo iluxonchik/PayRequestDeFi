@@ -13,7 +13,7 @@ from brownie.network.event import EventDict, _EventItem
 from brownie.test import given, strategy
 import pytest
 from brownie import network, accounts
-from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition, FixedPricePriceComputer, MyPostPaymentAction
+from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition, FixedTokenAmountComputer, MyPostPaymentAction
 from brownie.exceptions import VirtualMachineError
 from brownie.network.account import Account
 from brownie.network.contract import ProjectContract, Contract
@@ -34,18 +34,18 @@ def skip_if_not_local_blockchain():
 def assert_receipt_metadata_is_correct(*, receipt: Receipt, receipt_id: int, payment_request_addr: str, payment_request_id: int, token_addr: str, token_amount: int, payer_addr: str, payee_addr: str):
     assert receipt.receipt(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr)
 
-def assert_dynamic_price_event_is_correct(*,
-                                         events: Optional[EventDict],
-                                         receipt_addr: str,
-                                         receipt_id: int,
-                                         receipt_token_addr: str,
-                                         receipt_token_amount: int,
-                                         payer: str, payee: str,
-                                         payment_precondition_addr: str):
+def assert_dynamic_token_amount_event_is_correct(*,
+                                                 events: Optional[EventDict],
+                                                 receipt_addr: str,
+                                                 receipt_id: int,
+                                                 receipt_token_addr: str,
+                                                 receipt_token_amount: int,
+                                                 payer: str, payee: str,
+                                                 payment_precondition_addr: str):
     if not events:
         pytest.fail("Passed events are None or empty")
 
-    event_data: _EventItem = events[Events.DYNAMIC_PRICE_PPA_EXECUTED]
+    event_data: _EventItem = events[Events.DYNAMIC_TOKEN_AMOUNT_PPA_EXECUTED]
     assert event_data == {
         "receiptAddr": receipt_addr,
         "receiptId": receipt_id,
@@ -55,20 +55,20 @@ def assert_dynamic_price_event_is_correct(*,
         "payee": payee,
         "paymentPreconditionAddr": payment_precondition_addr,
     }
-def assert_static_price_event_is_correct(*,
-                                         events: Optional[EventDict],
-                                         receipt_addr: str,
-                                         receipt_id: int,
-                                         receipt_token_addr: str,
-                                         receipt_token_amount: int,
-                                         payer: str, payee: str,
-                                         payment_precondition_addr: str,
-                                         payment_request_token_addr: str,
-                                         payment_request_token_price: int):
+def assert_static_token_amount_event_is_correct(*,
+                                                events: Optional[EventDict],
+                                                receipt_addr: str,
+                                                receipt_id: int,
+                                                receipt_token_addr: str,
+                                                receipt_token_amount: int,
+                                                payer: str, payee: str,
+                                                payment_precondition_addr: str,
+                                                payment_request_token_addr: str,
+                                                payment_request_token_price: int):
     if not events:
         pytest.fail("Passed events are None or empty")
 
-    event_data: _EventItem = events[Events.STATIC_PRICE_PPA_EXECUTED]
+    event_data: _EventItem = events[Events.STATIC_TOKEN_AMOUNT_PPA_EXECUTED]
     assert event_data == {
         "receiptAddr": receipt_addr,
         "receiptId": receipt_id,
@@ -78,7 +78,7 @@ def assert_static_price_event_is_correct(*,
         "payee": payee,
         "paymentPreconditionAddr": payment_precondition_addr,
         "paymentRequestTokenAddr": payment_request_token_addr,
-        "paymentRequestTokenPrice": payment_request_token_price,
+        "paymentRequestTokenAmount": payment_request_token_price,
     }
 
 
@@ -109,7 +109,7 @@ def test_GIVEN_payment_request_creation_WHEN_no_prices_are_provided_THEN_payment
 
     # WHEN
     with pytest.raises(VirtualMachineError):
-        pr.createWithStaticPrice([], ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
+        pr.createWithStaticTokenAmount([], ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
 
 @example(price_in_tokens=0)
 @given(price_in_tokens=strategy("int256", min_value=0, max_value=99999))
@@ -130,41 +130,41 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
     token_addr: str = STATIC_PRICES[0][0]
     token_price: int = STATIC_PRICES[0][1]
     token_index: int = 0
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(STATIC_PRICES, ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(STATIC_PRICES, ADDRESS_ZERO, ADDRESS_ZERO, {"from": interactor})
     assert tx.status == Status.Confirmed
     payment_request_id: int = tx.return_value
 
     # THEN
-    assert payment_request.isPriceStatic(payment_request_id)
-    assert not payment_request.isPriceDynamic(payment_request_id)
+    assert payment_request.isTokenAmountStatic(payment_request_id)
+    assert not payment_request.isTokenAmountDynamic(payment_request_id)
 
     assert payment_request.getNumberOfStaticTokens(payment_request_id) == len(STATIC_PRICES)
     assert payment_request.getStaticTokens(payment_request_id) == (token_addr,)
-    assert payment_request.getStaticTokenPriceInfos(payment_request_id) == STATIC_PRICES
+    assert payment_request.getStaticTokenAmountInfos(payment_request_id) == STATIC_PRICES
 
-    assert payment_request.getStaticTokenPriceInfoByIndex(payment_request_id, token_index) == STATIC_PRICES[0]
+    assert payment_request.getStaticTokenAmountInfoByIndex(payment_request_id, token_index) == STATIC_PRICES[0]
     assert payment_request.getStaticTokenByIndex(payment_request_id, token_index) == token_addr
-    assert payment_request.getStaticTokenPriceByIndex(payment_request_id, token_index) == token_price
-    assert payment_request.getStaticTokenPrice(payment_request_id, token_addr) == token_price
-    tx: TransactionReceipt = payment_request.getTokenPrice(payment_request_id, token_addr)
+    assert payment_request.getStaticTokenAmountByIndex(payment_request_id, token_index) == token_price
+    assert payment_request.getStaticTokenAmount(payment_request_id, token_addr) == token_price
+    tx: TransactionReceipt = payment_request.getTokenAmount(payment_request_id, token_addr)
     assert tx.status == Status.Confirmed
     assert tx.return_value == token_price
 
     with pytest.raises(VirtualMachineError):
-        payment_request.getDynamicTokenPrice(payment_request_id, token_addr)
+        payment_request.getDynamicTokenAmount(payment_request_id, token_addr)
 
     non_existing_index = token_index + 1
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenPriceInfoByIndex(payment_request_id, non_existing_index)
+        payment_request.getStaticTokenAmountInfoByIndex(payment_request_id, non_existing_index)
 
     with pytest.raises(VirtualMachineError):
         payment_request.getStaticTokenByIndex(payment_request_id, non_existing_index)
 
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenPriceByIndex(payment_request_id, non_existing_index)
+        payment_request.getStaticTokenAmountByIndex(payment_request_id, non_existing_index)
 
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenPriceByIndex(payment_request_id, non_existing_index)
+        payment_request.getStaticTokenAmountByIndex(payment_request_id, non_existing_index)
 
     assert payment_request.balanceOf(interactor.address) == 1
     assert payment_request.tokenOfOwnerByIndex(interactor.address, 0) == payment_request_id
@@ -174,20 +174,20 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
 
     # interactor.address is not a token payment address that was added
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenPrice(payment_request_id, interactor.address)
+        payment_request.getStaticTokenAmount(payment_request_id, interactor.address)
 
     with pytest.raises(VirtualMachineError):
         # only one price added
-        payment_request.getStaticTokenPriceByIndex(0, 1)
+        payment_request.getStaticTokenAmountByIndex(0, 1)
 
     # test getters
-    assert payment_request.getStaticTokenPriceInfos(payment_request_id) == STATIC_PRICES
-    assert payment_request.getStaticTokenPrice(payment_request_id, erc20.address) == price_in_tokens
+    assert payment_request.getStaticTokenAmountInfos(payment_request_id) == STATIC_PRICES
+    assert payment_request.getStaticTokenAmount(payment_request_id, erc20.address) == price_in_tokens
 
-    assert payment_request.isPriceStatic(payment_request_id) == True
+    assert payment_request.isTokenAmountStatic(payment_request_id) == True
 
     with pytest.raises(VirtualMachineError):
-        payment_request.getDynamicTokenPrice(payment_request_id, erc20.address)
+        payment_request.getDynamicTokenAmount(payment_request_id, erc20.address)
 
 
 @given(num_tokens=strategy("int256", min_value=1, max_value=23), use_separate_account_for_pr_creation=strategy("bool"))
@@ -221,7 +221,7 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
         )
 
     # WHEN
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(static_prices,
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(static_prices,
                                         ADDRESS_ZERO,
                                         ADDRESS_ZERO,
                                        {"from": pr_token_creator})
@@ -239,27 +239,27 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
 
     # interactor.address is not a token payment address that was added
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenPrice(payment_request_id, interactor.address)
+        payment_request.getStaticTokenAmount(payment_request_id, interactor.address)
 
     # token prices for payment request ID
     for index, key in enumerate(erc_20_tokens):
         erc_20_token_dt: ERC20Token = erc_20_tokens[key]
-        assert payment_request.getStaticTokenPriceInfoByIndex(payment_request_id, index) == (erc_20_token_dt.erc_20.address, erc_20_token_dt.price)
+        assert payment_request.getStaticTokenAmountInfoByIndex(payment_request_id, index) == (erc_20_token_dt.erc_20.address, erc_20_token_dt.price)
 
     with pytest.raises(VirtualMachineError):
         # only len(erc_20_tokens) prices were added
-        payment_request.getStaticTokenPriceInfoByIndex(payment_request_id, len(erc_20_tokens) + 1)
+        payment_request.getStaticTokenAmountInfoByIndex(payment_request_id, len(erc_20_tokens) + 1)
 
     # Test Getters
-    assert payment_request.getStaticTokenPriceInfos(payment_request_id) == static_prices
-    assert payment_request.isPriceStatic(payment_request_id) == True
+    assert payment_request.getStaticTokenAmountInfos(payment_request_id) == static_prices
+    assert payment_request.isTokenAmountStatic(payment_request_id) == True
 
     for _, value in erc_20_tokens.items():
-        assert payment_request.getStaticTokenPrice(payment_request_id, value.erc_20.address) == value.price
+        assert payment_request.getStaticTokenAmount(payment_request_id, value.erc_20.address) == value.price
 
 
         with pytest.raises(VirtualMachineError):
-            payment_request.getDynamicTokenPrice(payment_request_id, value.erc_20.address)
+            payment_request.getDynamicTokenAmount(payment_request_id, value.erc_20.address)
 
 
 @given(num_deployers=strategy("uint256", min_value=2, max_value=10))
@@ -272,13 +272,13 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
         erc_20: ProjectContract
         price: int
 
-    TokenPriceInfo = Tuple[str, int]
-    TokenPrices: Type = List[TokenPriceInfo]
+    TokenAmountInfo = Tuple[str, int]
+    TokenAmounts: Type = List[TokenAmountInfo]
 
     deployer: Account = accounts[0]
     deployer_accounts: List[Account] = [accounts[i] for i in range(num_deployers)]
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
-    account_to_list_of_token_prices: Dict[int, List[TokenPrices]] = defaultdict(list)
+    account_to_list_of_token_prices: Dict[int, List[TokenAmounts]] = defaultdict(list)
     payment_request: ProjectContract = contract_builder.PaymentRequest
 
     total_num_tokens: int = 0
@@ -298,7 +298,7 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
 
             token_prices: List[Tuple[str, int]] = [(erc20token.erc_20.address, erc20token.price) for erc20token in tokens_for_account]
 
-            tx: TransactionReceipt = payment_request.createWithStaticPrice(
+            tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
                 token_prices,
                 ADDRESS_ZERO,
                 ADDRESS_ZERO,
@@ -321,48 +321,48 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
 
         for token_index in range(num_payment_requests_created):
             token_id: int = payment_request.tokenOfOwnerByIndex(account.address, token_index)
-            expected_token_addrs_and_prices_for_index: TokenPrices = account_to_list_of_token_prices[account_index][token_index]
+            expected_token_addrs_and_prices_for_index: TokenAmounts = account_to_list_of_token_prices[account_index][token_index]
 
-            assert payment_request.isPriceStatic(token_id)
-            assert not payment_request.isPriceDynamic(token_id)
+            assert payment_request.isTokenAmountStatic(token_id)
+            assert not payment_request.isTokenAmountDynamic(token_id)
 
             assert payment_request.getNumberOfStaticTokens(token_id) == len(expected_token_addrs_and_prices_for_index)
             assert payment_request.getStaticTokens(token_id) == [token[0] for token in expected_token_addrs_and_prices_for_index]
-            assert payment_request.getStaticTokenPriceInfos(token_id) == expected_token_addrs_and_prices_for_index
+            assert payment_request.getStaticTokenAmountInfos(token_id) == expected_token_addrs_and_prices_for_index
 
             # non-registered token price get
             with pytest.raises(VirtualMachineError):
-                payment_request.getStaticTokenPrice(token_id, account.address)
+                payment_request.getStaticTokenAmount(token_id, account.address)
 
             # assignments made to avoid linter warnings
             index: int = 0
-            item: TokenPriceInfo
+            item: TokenAmountInfo
             for index, item in enumerate(expected_token_addrs_and_prices_for_index):
                 token_addr: str = item[0]
                 token_price: int = item[1]
-                assert payment_request.getStaticTokenPriceInfoByIndex(token_id, index) == item
+                assert payment_request.getStaticTokenAmountInfoByIndex(token_id, index) == item
                 assert payment_request.getStaticTokenByIndex(token_id, index) == token_addr
-                assert payment_request.getStaticTokenPriceByIndex(token_id, index) == token_price
-                assert payment_request.getStaticTokenPrice(token_id, token_addr) == token_price
-                tx: TransactionReceipt = payment_request.getTokenPrice(token_id, token_addr)
+                assert payment_request.getStaticTokenAmountByIndex(token_id, index) == token_price
+                assert payment_request.getStaticTokenAmount(token_id, token_addr) == token_price
+                tx: TransactionReceipt = payment_request.getTokenAmount(token_id, token_addr)
                 assert tx.status == Status.Confirmed
                 assert tx.return_value == token_price
 
                 with pytest.raises(VirtualMachineError):
-                    payment_request.getDynamicTokenPrice(token_id, token_addr)
+                    payment_request.getDynamicTokenAmount(token_id, token_addr)
 
             non_existing_index = index + 1
             with pytest.raises(VirtualMachineError):
-                payment_request.getStaticTokenPriceInfoByIndex(token_id, non_existing_index)
+                payment_request.getStaticTokenAmountInfoByIndex(token_id, non_existing_index)
 
             with pytest.raises(VirtualMachineError):
                 payment_request.getStaticTokenByIndex(token_id, non_existing_index)
 
             with pytest.raises(VirtualMachineError):
-                payment_request.getStaticTokenPriceByIndex(token_id, non_existing_index)
+                payment_request.getStaticTokenAmountByIndex(token_id, non_existing_index)
 
             with pytest.raises(VirtualMachineError):
-                payment_request.getStaticTokenPriceByIndex(token_id, non_existing_index)
+                payment_request.getStaticTokenAmountByIndex(token_id, non_existing_index)
 
 
 # TODO: test with duplicate specifications of same token
@@ -381,7 +381,7 @@ def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THE
     contract_builder: ContractBuilder = ContractBuilder(account=account)
 
     pr: PaymentRequest = contract_builder.PaymentRequest
-    tx: TransactionReceipt = pr.createWithStaticPrice([[str(pr.address), TOKEN_AMOUNT]],
+    tx: TransactionReceipt = pr.createWithStaticTokenAmount([[str(pr.address), TOKEN_AMOUNT]],
                                        ADDRESS_ZERO,
                                        ADDRESS_ZERO,
                                        {"from": account})
@@ -419,7 +419,7 @@ def test_GIVEN_deployed_contract_WHEN_non_owner_attempting_to_disable_and_enable
     contract_builder: ContractBuilder = ContractBuilder(account=owner)
 
     pr: PaymentRequest = contract_builder.PaymentRequest
-    tx: TransactionReceipt = pr.createWithStaticPrice([[str(pr.address), TOKEN_AMOUNT]],
+    tx: TransactionReceipt = pr.createWithStaticTokenAmount([[str(pr.address), TOKEN_AMOUNT]],
                                                       ADDRESS_ZERO,
                                                       ADDRESS_ZERO,
                                                       {"from": owner})
@@ -458,7 +458,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_cr
 
     # construct the main PaymentRequest
     payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
         [
             [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
             [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
@@ -474,14 +474,14 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_cr
         payment_request.pay(created_token_id, non_exclusive_token.address, {"from": no_nft_or_pr})
         tx = TransactionReceipt(e.value.txid)
         assert tx.status == Status.Reverted
-        assert "PaymentPreconditionRejected" in tx.events
+        assert "PaymentPreconditionPassed" not in tx.events
 
     exclusive_token.approve(payment_request.address, EXCLUSIVE_TOKEN_AMOUNT, {"from": no_nft_or_pr})
     with pytest.raises(VirtualMachineError):
         payment_request.pay(created_token_id, exclusive_token.address, {"from": no_nft_or_pr})
         tx = TransactionReceipt(e.value.txid)
         assert tx.status == Status.Reverted
-        assert "PaymentPreconditionRejected" in tx.events
+        assert "PaymentPreconditionPassed" not in tx.events
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creator_attempts_to_purchase_exclusive_token_THEN_only_exclusive_token_purchase_is_allowed(*args, **kwargs):
     # GIVEN
@@ -507,7 +507,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creato
 
     # construct the main PaymentRequest
     payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
         [
             [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
             [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
@@ -523,7 +523,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creato
         payment_request.pay(created_token_id, non_exclusive_token.address, {"from": nft_no_pr})
         tx = TransactionReceipt(e.value.txid)
         assert tx.status == Status.Reverted
-        assert "PaymentPreconditionRejected" in tx.events
+        assert "PaymentPreconditionPassed" not in tx.events
 
     exclusive_token.approve(payment_request.address, EXCLUSIVE_TOKEN_AMOUNT, {"from": nft_no_pr})
     tx = payment_request.pay(created_token_id, exclusive_token.address, {"from": nft_no_pr})
@@ -552,7 +552,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creato
 
     # construct the main PaymentRequest
     payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
         [
             [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
             [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
@@ -565,7 +565,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creato
     created_token_id: int = tx.return_value
 
     # deploy payment for the Non-NFT, only Payment Request owner contract
-    payment_request.createWithStaticPrice(
+    payment_request.createWithStaticTokenAmount(
         [
             [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
             [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
@@ -585,7 +585,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creato
         payment_request.pay(created_token_id, exclusive_token.address, {"from": pr_no_nft})
         tx = TransactionReceipt(e.value.txid)
         assert tx.status == Status.Reverted
-        assert "PaymentPreconditionRejected" in tx.events
+        assert "PaymentPreconditionPassed" not in tx.events
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creator_attempts_to_purchase_exclusive_token_THEN_both_token_purchases_are_allowed(*args, **kwargs):
     # GIVEN
@@ -610,7 +610,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creato
 
     # construct the main PaymentRequest
     payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
         [
             [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
             [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
@@ -623,7 +623,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creato
     created_token_id: int = tx.return_value
 
     # deploy payment for the Non-NFT, only Payment Request owner contract
-    payment_request.createWithStaticPrice(
+    payment_request.createWithStaticTokenAmount(
         [
             [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
             [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
@@ -643,7 +643,7 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creato
     assert tx.status == Status.Confirmed
     assert "PaymentPreconditionRejected" not in tx.events
 
-# Dynamic Price Computer Test
+# Dynamic Amount Computer Test
 @pytest.mark.parametrize("price_in_tokens", [0, random.randint(1, 999)])
 def test_GIVEN_fixed_price_computer_function_WHEN_attempt_to_purchase_is_made_THEN_purchase_with_correct_amount_is_done(price_in_tokens: int, *args, **kwargs):
     # GIVEN
@@ -651,13 +651,13 @@ def test_GIVEN_fixed_price_computer_function_WHEN_attempt_to_purchase_is_made_TH
     purchaser: Account = accounts[1]
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
 
-    price_computer: FixedPricePriceComputer = contract_builder.get_fixed_price_price_computer(
+    price_computer: FixedTokenAmountComputer = contract_builder.get_fixed_token_amount_computer(
         price=price_in_tokens, account=deployer, force_deploy=True
     )
     assert price_in_tokens == price_computer.price()
 
     payment_request: PaymentRequest = contract_builder.PaymentRequest
-    tx: TransactionReceipt = payment_request.createWithDynamicPrice(
+    tx: TransactionReceipt = payment_request.createWithDynamicTokenAmount(
         price_computer.address,
         ADDRESS_ZERO,
         ADDRESS_ZERO,
@@ -707,7 +707,7 @@ def test_GIVEN_price_computer_returning_negative_price_WHEN_price_computer_is_in
     deployer: Account = accounts[0]
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
     with pytest.raises(OverflowError):
-        contract_builder.get_fixed_price_price_computer(
+        contract_builder.get_fixed_token_amount_computer(
             price=price_in_tokens, account=deployer, force_deploy=True
         )
 
@@ -718,14 +718,14 @@ def test_GIVEN_price_computer_WHEN_paying_and_approving_less_tokens_than_necessa
     purchaser: Account = accounts[1]
     contract_builder: ContractBuilder = ContractBuilder(account=deployer, force_deploy=True)
 
-    price_computer: FixedPricePriceComputer = contract_builder.get_fixed_price_price_computer(
+    price_computer: FixedTokenAmountComputer = contract_builder.get_fixed_token_amount_computer(
         price=price_in_tokens, account=deployer, force_deploy=True
     )
     assert price_in_tokens == price_computer.price()
     tokens_to_approve: int = price_in_tokens - 1
 
     payment_request: PaymentRequest = contract_builder.PaymentRequest
-    tx: TransactionReceipt = payment_request.createWithDynamicPrice(
+    tx: TransactionReceipt = payment_request.createWithDynamicTokenAmount(
         price_computer.address,
         ADDRESS_ZERO,
         ADDRESS_ZERO,
@@ -774,7 +774,7 @@ def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_
     erc_20_second: MyERC20 = contract_builder.MyERC20
     payee_from_account: Account = payee if use_separate_account_for_pay else deployer
 
-    tx: TransactionReceipt = payment_request.createWithStaticPrice(
+    tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
         [
             [str(erc_20_first.address), price_in_tokens],
             [str(erc_20_second.address), price_in_tokens]
@@ -800,13 +800,13 @@ def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_
 
     # THEN
     assert tx.status == Status.Confirmed
-    assert Events.STATIC_PRICE_PPA_EXECUTED in tx.events
-    assert Events.DYNAMIC_PRICE_PPA_EXECUTED not in tx.events
+    assert Events.STATIC_TOKEN_AMOUNT_PPA_EXECUTED in tx.events
+    assert Events.DYNAMIC_TOKEN_AMOUNT_PPA_EXECUTED not in tx.events
 
     receipt_id: int = tx.return_value
     receipt_addr: str = payment_request.receipt()
 
-    assert_static_price_event_is_correct(
+    assert_static_token_amount_event_is_correct(
         events=tx.events,
         receipt_addr=receipt_addr,
         receipt_id=receipt_id,
@@ -834,12 +834,12 @@ def test_GIVEN_dynamic_prices_and_post_payment_action_WHEN_payment_is_succesfull
     erc_20: MyERC20 = contract_builder.MyERC20
     payee_from_account: Account = payee if use_separate_account_for_pay else deployer
 
-    price_computer: FixedPricePriceComputer = contract_builder.get_fixed_price_price_computer(
+    price_computer: FixedTokenAmountComputer = contract_builder.get_fixed_token_amount_computer(
         price=price_in_tokens, account=deployer, force_deploy=True
     )
     assert price_in_tokens == price_computer.price()
 
-    tx: TransactionReceipt = payment_request.createWithDynamicPrice(
+    tx: TransactionReceipt = payment_request.createWithDynamicTokenAmount(
         price_computer.address,
         ADDRESS_ZERO,
         post_payment_action.address,
@@ -863,13 +863,13 @@ def test_GIVEN_dynamic_prices_and_post_payment_action_WHEN_payment_is_succesfull
 
     # THEN
     assert tx.status == Status.Confirmed
-    assert Events.STATIC_PRICE_PPA_EXECUTED not in tx.events
-    assert Events.DYNAMIC_PRICE_PPA_EXECUTED in tx.events
+    assert Events.STATIC_TOKEN_AMOUNT_PPA_EXECUTED not in tx.events
+    assert Events.DYNAMIC_TOKEN_AMOUNT_PPA_EXECUTED in tx.events
 
     receipt_id: int = tx.return_value
     receipt_addr: str = payment_request.receipt()
 
-    assert_dynamic_price_event_is_correct(
+    assert_dynamic_token_amount_event_is_correct(
         events=tx.events,
         receipt_addr=receipt_addr,
         receipt_id=receipt_id,
