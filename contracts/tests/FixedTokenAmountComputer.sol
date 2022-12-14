@@ -8,7 +8,7 @@ contract FixedTokenAmountComputer is ITokenAmountComputer {
         price = _price;
     }
 
-    function getPriceForToken(uint256 paymentRequestId, address tokenAddr, address payer) external override returns (uint256) {
+    function getAmountForToken(uint256 paymentRequestId, address tokenAddr, address payer) external override returns (uint256) {
         return price;
     }
 }

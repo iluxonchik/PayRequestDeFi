@@ -6,8 +6,8 @@ import "contracts/Receipt.sol";
 import {Payment} from "contracts/libraries/Payment.sol";
 
 contract MyPostPaymentAction is IPostPaymentAction {
-    event DynamicPricePPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr);
-    event StaticPricePPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr, address paymentRequestTokenAddr, uint256 paymentRequestTokenPrice);
+    event DynamicTokenAmountPPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr);
+    event StaticTokenAmountPPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr, address paymentRequestTokenAddr, uint256 paymentRequestTokenAmount);
 
 
     function onPostPayment(address receiptAddr, uint256 receiptId) override external {
@@ -23,13 +23,13 @@ contract MyPostPaymentAction is IPostPaymentAction {
         PaymentRequest paymentRequest = PaymentRequest(paymentRequestAddr);
         address paymentPreconditionAddr = paymentRequest.tokenIdToPaymentPrecondition(paymentRequestId);
 
-        if (paymentRequest.isPriceStatic(paymentRequestId)) {
-            Payment.TokenPriceInfo[] memory tokenPrices = paymentRequest.getStaticTokenPriceInfos(paymentRequestId);
-            address firstTokenAddr = tokenPrices[0].tokenAddr;
-            uint256 tokenPrice = paymentRequest.getStaticTokenPrice(paymentRequestId, firstTokenAddr);
-            emit StaticPricePPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr, firstTokenAddr, tokenPrice);
+        if (paymentRequest.isTokenAmountStatic(paymentRequestId)) {
+            Payment.TokenAmountInfo[] memory tokenAmounts = paymentRequest.getStaticTokenAmountInfos(paymentRequestId);
+            address firstTokenAddr = tokenAmounts[0].tokenAddr;
+            uint256 tokenAmountStatic = paymentRequest.getStaticTokenAmount(paymentRequestId, firstTokenAddr);
+            emit StaticTokenAmountPPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr, firstTokenAddr, tokenAmountStatic);
         } else {
-            emit DynamicPricePPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr);
+            emit DynamicTokenAmountPPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr);
         }
 
     }
