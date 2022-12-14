@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
-import "interfaces/IPriceComputer.sol";
+import "interfaces/ITokenAmountComputer.sol";
 
-contract FixedPricePriceComputer is IPriceComputer {
+contract FixedTokenAmountComputer is ITokenAmountComputer {
     uint256 public price;
 
     constructor(uint256 _price) {

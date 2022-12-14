@@ -2,14 +2,14 @@ pragma solidity ^0.8.0;
 
 library Payment {
 
-    /// @notice Price of token in terms of its amount. Mapping value interface.
-    struct TokenPriceMappingValue {
+    /// @notice Amount of token in terms of its amount. Mapping value interface.
+    struct TokenAmountMappingValue {
         uint256 tokenAmount;
         bool isSet;
     }
 
-    /// @notice Token price interface. Contains the address of the token and its amount. Useful abstraction for pulic input paramaters.
-    struct TokenPriceInfo {
+    /// @notice Token amount interface. Contains the address of the token and its amount. Useful abstraction for pulic input paramaters.
+    struct TokenAmountInfo {
         address tokenAddr;
         uint256 tokenAmount;
     }
