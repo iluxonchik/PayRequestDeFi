@@ -145,13 +145,13 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
     assert payment_request.getStaticTokenAmountInfoByIndex(payment_request_id, token_index) == STATIC_PRICES[0]
     assert payment_request.getStaticTokenByIndex(payment_request_id, token_index) == token_addr
     assert payment_request.getStaticTokenAmountByIndex(payment_request_id, token_index) == token_price
-    assert payment_request.getStaticTokenAmount(payment_request_id, token_addr) == token_price
-    tx: TransactionReceipt = payment_request.getTokenAmount(payment_request_id, token_addr)
+    assert payment_request.getStaticAmountForToken(payment_request_id, token_addr) == token_price
+    tx: TransactionReceipt = payment_request.getAmountForToken(payment_request_id, token_addr)
     assert tx.status == Status.Confirmed
     assert tx.return_value == token_price
 
     with pytest.raises(VirtualMachineError):
-        payment_request.getDynamicTokenAmount(payment_request_id, token_addr)
+        payment_request.getDynamicAmountForToken(payment_request_id, token_addr)
 
     non_existing_index = token_index + 1
     with pytest.raises(VirtualMachineError):
@@ -174,7 +174,7 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
 
     # interactor.address is not a token payment address that was added
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenAmount(payment_request_id, interactor.address)
+        payment_request.getStaticAmountForToken(payment_request_id, interactor.address)
 
     with pytest.raises(VirtualMachineError):
         # only one price added
@@ -182,12 +182,12 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
 
     # test getters
     assert payment_request.getStaticTokenAmountInfos(payment_request_id) == STATIC_PRICES
-    assert payment_request.getStaticTokenAmount(payment_request_id, erc20.address) == price_in_tokens
+    assert payment_request.getStaticAmountForToken(payment_request_id, erc20.address) == price_in_tokens
 
     assert payment_request.isTokenAmountStatic(payment_request_id) == True
 
     with pytest.raises(VirtualMachineError):
-        payment_request.getDynamicTokenAmount(payment_request_id, erc20.address)
+        payment_request.getDynamicAmountForToken(payment_request_id, erc20.address)
 
 
 @given(num_tokens=strategy("int256", min_value=1, max_value=23), use_separate_account_for_pr_creation=strategy("bool"))
@@ -239,7 +239,7 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
 
     # interactor.address is not a token payment address that was added
     with pytest.raises(VirtualMachineError):
-        payment_request.getStaticTokenAmount(payment_request_id, interactor.address)
+        payment_request.getStaticAmountForToken(payment_request_id, interactor.address)
 
     # token prices for payment request ID
     for index, key in enumerate(erc_20_tokens):
@@ -255,11 +255,11 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
     assert payment_request.isTokenAmountStatic(payment_request_id) == True
 
     for _, value in erc_20_tokens.items():
-        assert payment_request.getStaticTokenAmount(payment_request_id, value.erc_20.address) == value.price
+        assert payment_request.getStaticAmountForToken(payment_request_id, value.erc_20.address) == value.price
 
 
         with pytest.raises(VirtualMachineError):
-            payment_request.getDynamicTokenAmount(payment_request_id, value.erc_20.address)
+            payment_request.getDynamicAmountForToken(payment_request_id, value.erc_20.address)
 
 
 @given(num_deployers=strategy("uint256", min_value=2, max_value=10))
@@ -332,7 +332,7 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
 
             # non-registered token price get
             with pytest.raises(VirtualMachineError):
-                payment_request.getStaticTokenAmount(token_id, account.address)
+                payment_request.getStaticAmountForToken(token_id, account.address)
 
             # assignments made to avoid linter warnings
             index: int = 0
@@ -343,13 +343,13 @@ def test_GIVEN_multiple_token_price_pair_from_deployer_account_WHEN_payment_requ
                 assert payment_request.getStaticTokenAmountInfoByIndex(token_id, index) == item
                 assert payment_request.getStaticTokenByIndex(token_id, index) == token_addr
                 assert payment_request.getStaticTokenAmountByIndex(token_id, index) == token_price
-                assert payment_request.getStaticTokenAmount(token_id, token_addr) == token_price
-                tx: TransactionReceipt = payment_request.getTokenAmount(token_id, token_addr)
+                assert payment_request.getStaticAmountForToken(token_id, token_addr) == token_price
+                tx: TransactionReceipt = payment_request.getAmountForToken(token_id, token_addr)
                 assert tx.status == Status.Confirmed
                 assert tx.return_value == token_price
 
                 with pytest.raises(VirtualMachineError):
-                    payment_request.getDynamicTokenAmount(token_id, token_addr)
+                    payment_request.getDynamicAmountForToken(token_id, token_addr)
 
             non_existing_index = index + 1
             with pytest.raises(VirtualMachineError):

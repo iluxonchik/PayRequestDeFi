@@ -116,7 +116,7 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenIdToAmountArray[paymentRequestId][index].tokenAmount;
     }
 
-    function getStaticTokenAmount(uint256 paymentRequestId, address tokenAddr) public view returns (uint256) {
+    function getStaticAmountForToken(uint256 paymentRequestId, address tokenAddr) public view returns (uint256) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
 
         Payment.TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][tokenAddr];
@@ -130,7 +130,7 @@ contract PaymentRequest is ERC721Enumerable {
     /// contract to query for the dynamic price of a token. Since its logic is arbitrary, other methods may be
     /// infeasible to implement. An example of that would be an IAmountComputer that accepts any token converted
     /// to a stablecoin such as USDT. Operations like listing all of the accepted token IDs becomes impractical
-    function getDynamicTokenAmount(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
+    function getDynamicAmountForToken(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
         require(isTokenAmountDynamic(paymentRequestId), "Amount of the provided PaymentRequest ID is not dynamic.");
         address priceComputerAddr = tokenIdToAmountComputer[paymentRequestId];
         ITokenAmountComputer priceComputer = ITokenAmountComputer(priceComputerAddr);
@@ -195,12 +195,12 @@ contract PaymentRequest is ERC721Enumerable {
     /// does not accept payments in the provided token ID. You should always check the isSet variable of the
     /// reutned struct: if it false, the payments in the provided token are not defined.
     /// Both parts done in a single function to be more gas efficient.
-    function getTokenAmount(
+    function getAmountForToken(
         uint256 paymentRequestId,
         address tokenAddr
     ) public returns (uint256) {
         bool isPaymentStatic = true;
-        uint256 price = isTokenAmountStatic(paymentRequestId) ? getStaticTokenAmount(paymentRequestId, tokenAddr) : getDynamicTokenAmount(paymentRequestId, tokenAddr);
+        uint256 price = isTokenAmountStatic(paymentRequestId) ? getStaticAmountForToken(paymentRequestId, tokenAddr) : getDynamicAmountForToken(paymentRequestId, tokenAddr);
         emit TokenAmountObtained(paymentRequestId, tokenAddr, msg.sender, price, isPaymentStatic);
         return price;
     }
@@ -426,7 +426,7 @@ contract PaymentRequest is ERC721Enumerable {
     {
         _checkPaymentPrecondition(paymentRequestId, tokenAddr);
 
-        uint256 tokenAmount = getTokenAmount(
+        uint256 tokenAmount = getAmountForToken(
             paymentRequestId,
             tokenAddr
         );
