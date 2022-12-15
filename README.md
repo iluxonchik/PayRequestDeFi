@@ -1,7 +1,7 @@
-# Multi-Token Payments With Post-Payment Actions On The Blockchain
+# PayRequestDeFi: Multi-Token Payments With Post-Payment Actions On The Blockchain
 
 A smart-contract payment system which allows for payments in an arbitrary set of tokens, with a
-support for fully customizable post-payment actions.
+support for fully customizable post-payment actions, statis or dynamic prices, and payment eligibility conditions.
 
 ## NOTE
 
@@ -55,6 +55,30 @@ the caller contract will very likely be necessary, ensuring that the callee addr
 specially important for the Post-Payment Action, otherwise anyone will be able to execute the Post-Payment Action 
 without having to perform the payment.
 
+### Checking Which Payment Requests Fail At Which Part
+
+Detailed on-chain information about the progress of a payment can present itself very useful in judging the quality and 
+credibility of a `PaymentRequest`. For example, if a particular `PaymentRequest` contains a lot of failures on the
+`precondition` step, it is reasonable to assume that either that part is poorly documented by the owner of the
+`PaymentRequest`, or it contains faulty code. As such, a `payee` may reconsider their payment.
+
+Events present themselves as good way to offer this feature. There are two ways in which this can be achieved:
+
+1. Emit events on success. By emitting events on success of each step, it is possible to identify at which part the execution failed, by observing a lack of that event.
+2. Emit events on failures. This makes it possible to identify exactly at which step the execution of the `pay()` function failed.
+
+A typical way in which option `2` could be achieved is wrapping blocks of code in a `try/catch` statement, and emitting the events inside the `catch`.
+However, at the time of the writing, Solidity does not offer a way to re-raise an exception in the `catch` block. Since detailed failure
+information of a contract call is of great value, it is desired to preserve it.
+
+As such, `PaymentRequests` adopts option `1`. The following pseudocode can be used to identify the point where the
+failure has occurred:
+
+```
+Given a failed pay() transaction for a given paymentRequestID:
+    
+```
+
 ## Use Cases
 
 The purpose of this section is to provide a description of how certain features of the payment system can be achieved
@@ -63,7 +87,7 @@ with the smart contracts present here.
 ### Discounted Price For First 100 Customers
 
 Outside of the blockchain, you don't know if retailers are telling the truth: they may lure you to purchase a product
-with the pretense of a special pricr for the first *N* customers, but in reality offer it to *N+M* customers, with
+with the pretense of a special price for the first *N* customers, but in reality offer it to *N+M* customers, with
 *M>0*.
 
 ### NFT Owners Get A Discounted Price
