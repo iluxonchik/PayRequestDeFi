@@ -21,7 +21,7 @@ contract MyPostPaymentAction is IPostPaymentAction {
         address paymentRequestAddr = receiptMetadata.paymentRequestAddr;
         uint256 paymentRequestId = receiptMetadata.paymentRequestId;
         PaymentRequest paymentRequest = PaymentRequest(paymentRequestAddr);
-        address paymentPreconditionAddr = paymentRequest.tokenIdToPaymentPrecondition(paymentRequestId);
+        address paymentPreconditionAddr = paymentRequest.getPaymentPrecondition(paymentRequestId);
 
         if (paymentRequest.isTokenAmountStatic(paymentRequestId)) {
             Payment.TokenAmountInfo[] memory tokenAmounts = paymentRequest.getStaticTokenAmountInfos(paymentRequestId);
