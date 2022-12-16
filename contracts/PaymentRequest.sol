@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "interfaces/IERC20.sol";
 import "interfaces/IPostPaymentAction.sol";
 import "interfaces/IPaymentPrecondition.sol";
-import "interfaces/ITokenAmountComputer.sol";
+import "interfaces/IDynamicTokenAmount.sol";
 
 import {Payment} from "./libraries/Payment.sol";
 import "contracts/Receipt.sol";
@@ -59,9 +59,9 @@ contract PaymentRequest is ERC721Enumerable {
     mapping(uint256 => Payment.TokenAmountInfo[]) internal tokenIdToAmountArray;
     mapping(uint256 => address[]) internal tokenIdToAcceptedStaticTokens;
     // TODO: make below internal and offer getters
-    mapping(uint256 => address) public tokenIdToPostPaymentAction;
-    mapping(uint256 => address) public tokenIdToPaymentPrecondition;
-    mapping(uint256 => address) public tokenIdToAmountComputer;
+    mapping(uint256 => address) internal tokenIdToPostPaymentAction;
+    mapping(uint256 => address) internal tokenIdToPaymentPrecondition;
+    mapping(uint256 => address) internal tokenIdToDynamicTokenAmount;
     mapping(uint256 => bool) internal tokenIdToEnabled;
 
     constructor(
@@ -75,11 +75,11 @@ contract PaymentRequest is ERC721Enumerable {
 
     // Static/Dynamic Token Amount Distinction
     function isTokenAmountStatic(uint256 paymentRequestId) public view returns(bool) {
-        return tokenIdToAmountComputer[paymentRequestId] == address(0);
+        return tokenIdToDynamicTokenAmount[paymentRequestId] == address(0);
     }
 
     function isTokenAmountDynamic(uint256 paymentRequestId) public view returns(bool) {
-        return tokenIdToAmountComputer[paymentRequestId] != address(0);
+        return tokenIdToDynamicTokenAmount[paymentRequestId] != address(0);
     }
 
     // Static Token Count
@@ -126,14 +126,27 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenAmount.tokenAmount;
     }
 
+    function getPostPaymentAction(uint256 paymentRequestId) public view returns (address) {
+        return tokenIdToPostPaymentAction[paymentRequestId];
+    }
+
+    function getPaymentPrecondition(uint256 paymentRequestId) public view returns (address) {
+        return tokenIdToPaymentPrecondition[paymentRequestId];
+    }
+
+    function getDynamicTokenAmount(uint256 paymentRequestId) public view returns (address) {
+        return tokenIdToDynamicTokenAmount[paymentRequestId];
+    }
+
+
     /// @notice Get the price when a dynamic pricing scheme is in use. This is the only method available in this
     /// contract to query for the dynamic price of a token. Since its logic is arbitrary, other methods may be
     /// infeasible to implement. An example of that would be an IAmountComputer that accepts any token converted
     /// to a stablecoin such as USDT. Operations like listing all of the accepted token IDs becomes impractical
     function getDynamicAmountForToken(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
         require(isTokenAmountDynamic(paymentRequestId), "Amount of the provided PaymentRequest ID is not dynamic.");
-        address priceComputerAddr = tokenIdToAmountComputer[paymentRequestId];
-        ITokenAmountComputer priceComputer = ITokenAmountComputer(priceComputerAddr);
+        address priceComputerAddr = tokenIdToDynamicTokenAmount[paymentRequestId];
+        IDynamicTokenAmount priceComputer = IDynamicTokenAmount(priceComputerAddr);
         return priceComputer.getAmountForToken(
                 paymentRequestId,
                 tokenAddr,
@@ -357,7 +370,7 @@ contract PaymentRequest is ERC721Enumerable {
         uint256 tokenId = _createCommonBase(payTo, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
-        tokenIdToAmountComputer[tokenId] = priceComputer;
+        tokenIdToDynamicTokenAmount[tokenId] = priceComputer;
 
         return tokenId;
     }

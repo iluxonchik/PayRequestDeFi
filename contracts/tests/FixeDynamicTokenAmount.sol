@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
-import "interfaces/ITokenAmountComputer.sol";
+import "interfaces/IDynamicTokenAmount.sol";
 
-contract FixedTokenAmountComputer is ITokenAmountComputer {
+contract FixedDynamicTokenAmount is IDynamicTokenAmount {
     uint256 public price;
 
     constructor(uint256 _price) {
