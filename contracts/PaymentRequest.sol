@@ -45,8 +45,6 @@ contract PaymentRequest is ERC721Enumerable {
     );
 
     
-    
-    
     event PaymentRequestEnabled(uint256 paymentRequestId, address enabledBy);
     event PaymentRequestDisabled(uint256 paymentRequestId, address disabledBy);
 
@@ -58,7 +56,6 @@ contract PaymentRequest is ERC721Enumerable {
     mapping(uint256 => mapping(address => Payment.TokenAmountMappingValue)) internal tokenIdToAmountMap;
     mapping(uint256 => Payment.TokenAmountInfo[]) internal tokenIdToAmountArray;
     mapping(uint256 => address[]) internal tokenIdToAcceptedStaticTokens;
-    // TODO: make below internal and offer getters
     mapping(uint256 => address) internal tokenIdToPostPaymentAction;
     mapping(uint256 => address) internal tokenIdToPaymentPrecondition;
     mapping(uint256 => address) internal tokenIdToDynamicTokenAmount;
@@ -80,6 +77,14 @@ contract PaymentRequest is ERC721Enumerable {
 
     function isTokenAmountDynamic(uint256 paymentRequestId) public view returns(bool) {
         return tokenIdToDynamicTokenAmount[paymentRequestId] != address(0);
+    }
+
+    function isPaymentPreconditionSet(uint256 paymentRequestId) public view returns(bool) {
+        return tokenIdToPaymentPrecondition[paymentRequestId] != address(0);
+    }
+
+    function isPaymentPostActionSet(uint256 paymentRequestId) public view returns(bool) {
+        return tokenIdToPostPaymentAction[paymentRequestId]  != address(0);
     }
 
     // Static Token Count
