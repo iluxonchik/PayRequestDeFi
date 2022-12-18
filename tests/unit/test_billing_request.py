@@ -81,11 +81,39 @@ def assert_static_token_amount_event_is_correct(*,
         "paymentRequestTokenAmount": payment_request_token_price,
     }
 
-def assert_expected_events_occured(*, payment_request: ProjectContract, tx: TransactionReceipt):
-    ExpectedEventsFor
+def assert_expected_events_occurred_for_successful_transaction(*, payment_request: ProjectContract, payment_request_id: int, tx: TransactionReceipt) -> List[str]:
+    PP_PPA_TO_EXPECTED_EVENTS: dict[tuple[bool, bool], list[str]] = {
+        (True, False): ExpectedEventsFor.Success.PP.NoPPA,
+        (True, True): ExpectedEventsFor.Success.PP.PPA,
+        (False, False): ExpectedEventsFor.Success.NoPP.NoPPA,
+        (False, True): ExpectedEventsFor.Success.NoPP.PPA,
+    }
+    is_payment_precondition_set: bool = payment_request.isPaymentPreconditionSet(payment_request_id)
+    is_post_payment_action_set: bool = payment_request.isPaymentPostActionSet(payment_request_id)
 
-    pass
+    expected_events: List[str] = PP_PPA_TO_EXPECTED_EVENTS[(is_payment_precondition_set, is_post_payment_action_set)]
 
+    for event in expected_events:
+        assert event in tx.events
+
+def _get_expected_events_for_failure(is_payment_precondition_set: bool, is_post_payment_action_set: bool, failed_at: str) -> List[str]:
+    PP_PPA_TO_EXPECTED_EVENTS: dict[tuple[bool, bool], type] = {
+        (True, False): ExpectedEventsFor.Failure.PP.NoPPA,
+        (True, True): ExpectedEventsFor.Failure.PP.PPA,
+        (False, False): ExpectedEventsFor.Failure.NoPP.NoPPA,
+        (False, True): ExpectedEventsFor.Failure.NoPP.PPA,
+    }
+
+    return getattr(PP_PPA_TO_EXPECTED_EVENTS[(is_payment_precondition_set, is_post_payment_action_set)], failed_at)
+
+def assert_expected_events_occurred_for_failed_transaction(*, payment_request: ProjectContract, payment_request_id: int, tx: TransactionReceipt, failed_at: str):
+    is_payment_precondition_set: bool = payment_request.isPaymentPreconditionSet(payment_request_id)
+    is_post_payment_action_set: bool = payment_request.isPaymentPostActionSet(payment_request_id)
+
+    expected_events: list[str] = _get_expected_events_for_failure(is_payment_precondition_set, is_post_payment_action_set, failed_at)
+
+    for event in expected_events:
+        assert event in tx.events
 
 # Internal Structures Test
 def test_GIVEN_payment_request_WHEN_deployed_THEN_deployment_succeeds(*args, **kwargs):
@@ -231,7 +259,6 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
                                        {"from": pr_token_creator})
 
     assert tx.status == Status.Confirmed
-    payment_request_id: int = tx.return_value
 
     # THEN
     assert payment_request.balanceOf(pr_token_creator) == 1
