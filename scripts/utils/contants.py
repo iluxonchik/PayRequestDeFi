@@ -27,6 +27,7 @@ class PaymentFailedAt:
     TA: str = "TA"
     PPA: str = "PPA"
     PR: str = "PR"
+    TOKEN_BALANCE_OR_APPROVAL: str = "TBTA"
 
 class ExpectedEventsFor:
     class Success:
@@ -60,40 +61,44 @@ class ExpectedEventsFor:
         class PP:
             class NoPPA:
                 class FailAt:
-                    PaymentFailedAt.PP: List[str] = []
-                    PaymentFailedAt.TA: List[str] = PaymentFailedAt.PP + [
+                    PP: List[str] = []
+                    TA: List[str] = PP + [
                         EventName.PAYMENT_PRECONDITION_PASSED,
                     ]
-                    PaymentFailedAt.PR: List[str] = PaymentFailedAt.TA + [
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
+                    PR: List[str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
             class PPA:
                 class FailAt:
-                    PaymentFailedAt.PP: List[str] = []
-                    PaymentFailedAt.TA: List[str] = PaymentFailedAt.PP + [
+                    PP: List[str] = []
+                    TA: List[str] = PP + [
                         EventName.PAYMENT_PRECONDITION_PASSED,
                     ]
-                    PaymentFailedAt.PPA: List[str] = PaymentFailedAt.TA + [
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
+                    PPA: List[str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
-                    PaymentFailedAt.PR: List[str] = PaymentFailedAt.PPA + [
+                    PR: List[str] = PPA + [
                         EventName.PAYMENT_REQUEST_PAID,
                     ]
         class NoPP:
             class NoPPA:
                 class FailAt:
-                    PaymentFailedAt.TA: List[str] = []
-                    PaymentFailedAt.PR: List [str] = PaymentFailedAt.TA + [
+                    TA: List[str] = []
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
+                    PR: List [str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
 
             class PPA:
                 class FailAt:
-                    PaymentFailedAt.TA: List[str] = []
-                    PaymentFailedAt.PPA: List[str] = PaymentFailedAt.TA + [
+                    TA: List[str] = []
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
+                    PPA: List[str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
-                    PaymentFailedAt.PR: List[str] = PaymentFailedAt.PPA + [
+                    PR: List[str] = PPA + [
                         EventName.POST_PAYMENT_ACTION_EXECUTED,
                     ]
 
