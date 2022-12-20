@@ -131,15 +131,15 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenAmount.tokenAmount;
     }
 
-    function getPostPaymentAction(uint256 paymentRequestId) public view returns (address) {
+    function getPostPaymentActionAddr(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToPostPaymentAction[paymentRequestId];
     }
 
-    function getPaymentPrecondition(uint256 paymentRequestId) public view returns (address) {
+    function getPaymentPreconditionAddr(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToPaymentPrecondition[paymentRequestId];
     }
 
-    function getDynamicTokenAmount(uint256 paymentRequestId) public view returns (address) {
+    function getDynamicTokenAmountAddr(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToDynamicTokenAmount[paymentRequestId];
     }
 
@@ -177,6 +177,7 @@ contract PaymentRequest is ERC721Enumerable {
 
         for (uint256 i = 0; i < prices.length; i++) {
             Payment.TokenAmountInfo memory price = prices[i];
+            require(!tokenIdToAmountMap[tokenId][price.tokenAddr].isSet, "Multiple token amounts for the same token provided.");
             tokenIdToAmountMap[tokenId][price.tokenAddr] = Payment
                 .TokenAmountMappingValue({
                     tokenAmount: price.tokenAmount,
