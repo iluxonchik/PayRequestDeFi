@@ -1,6 +1,5 @@
 import random
 
-import brownie
 import pytest
 from brownie import PaymentRequest, MyERC20, Receipt, FixedDynamicTokenAmount
 from brownie import accounts
@@ -17,12 +16,20 @@ from .asserters import (
     assert_expected_events_occurred_for_successful_transaction,
     assert_expected_events_occurred_for_failed_transaction, assert_receipt_metadata_is_correct,
 )
+from .dto import IntegerValue, IntegerValueRange, ValueRange
 
-@pytest.mark.parametrize("price_in_tokens", [0, random.randint(1, 999)])
+
+@pytest.fixture(scope="module", autouse=True)
+def shared_setup(module_isolation):
+    pass
+
+@pytest.mark.parametrize("price_in_tokens_integer_range", [IntegerValue(value=0), IntegerValueRange(min_value=1, max_value=999)])
 def test_GIVEN_fixed_price_computer_function_WHEN_attempt_to_purchase_is_made_THEN_purchase_with_correct_amount_is_done(
-    price_in_tokens: int, *args, **kwargs
+    price_in_tokens_integer_range: ValueRange, *args, **kwargs
 ):
     # GIVEN
+    # python-xdist does not function correctly when random values in pytest parameterization are used
+    price_in_tokens: list[int] = random.randint(price_in_tokens_integer_range.min_value, price_in_tokens_integer_range.max_value)
     deployer: Account = accounts[0]
     purchaser: Account = accounts[1]
     contract_builder: ContractBuilder = ContractBuilder(
