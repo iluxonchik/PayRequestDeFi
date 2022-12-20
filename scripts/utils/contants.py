@@ -27,7 +27,7 @@ class PaymentFailedAt:
     TA: str = "TA"
     PPA: str = "PPA"
     PR: str = "PR"
-    TOKEN_BALANCE_OR_APPROVAL: str = "TBTA"
+    TOKEN_BALANCE_OR_APPROVAL: str = "TOKEN_BALANCE_OR_APPROVAL"
 
 class ExpectedEventsFor:
     class Success:
@@ -65,20 +65,20 @@ class ExpectedEventsFor:
                     TA: List[str] = PP + [
                         EventName.PAYMENT_PRECONDITION_PASSED,
                     ]
-                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
                     PR: List[str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = PR
             class PPA:
                 class FailAt:
                     PP: List[str] = []
                     TA: List[str] = PP + [
                         EventName.PAYMENT_PRECONDITION_PASSED,
                     ]
-                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
                     PPA: List[str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = PPA
                     PR: List[str] = PPA + [
                         EventName.PAYMENT_REQUEST_PAID,
                     ]
@@ -86,18 +86,18 @@ class ExpectedEventsFor:
             class NoPPA:
                 class FailAt:
                     TA: List[str] = []
-                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
                     PR: List [str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = PR
 
             class PPA:
                 class FailAt:
                     TA: List[str] = []
-                    TOKEN_BALANCE_OR_APPROVAL: List[str] = TA
                     PPA: List[str] = TA + [
                         EventName.TOKEN_AMOUNT_OBTAINED,
                     ]
+                    TOKEN_BALANCE_OR_APPROVAL: List[str] = PPA
                     PR: List[str] = PPA + [
                         EventName.POST_PAYMENT_ACTION_EXECUTED,
                     ]
