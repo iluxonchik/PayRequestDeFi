@@ -10,6 +10,7 @@ import "interfaces/IDynamicTokenAmount.sol";
 
 import {Payment} from "./libraries/Payment.sol";
 import "contracts/Receipt.sol";
+import "./Receipt.sol";
 
 // in the context below, "PaymentRequest" can be in place of ERC-721 and vice-versa.
 /// @notice PaymentRequest represents a request for a payment, to be paid by some party.
@@ -64,10 +65,18 @@ contract PaymentRequest is ERC721Enumerable {
     constructor(
         string memory name,
         string memory symbol,
-        address receiptAddr
+        address customReceiptAddr
     ) ERC721(name, symbol) {
-        // you can either utilize an existing Receipt contract or deploy your own one
-        receipt = Receipt(receiptAddr);
+        // you can either utilize an existing Receipt contract or deploy your own
+        if (customReceiptAddr == address(0)) {
+            // no custom receipt address provided, deploy one
+            string memory receiptName = string.concat(name, " Receipt");
+            string memory receiptSymbol = string.concat(symbol, "RCT");
+           receipt = new Receipt(receiptName, receiptSymbol);
+        } else {
+            // custom receipt address provided
+            receipt = Receipt(customReceiptAddr);
+        }
     }
 
     // Static/Dynamic Token Amount Distinction
