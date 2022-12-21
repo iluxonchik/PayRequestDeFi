@@ -13,9 +13,12 @@ from hypothesis import example
 from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contract import ContractBuilder
-from .asserters import assert_expected_events_occurred_for_successful_transaction, \
+from scripts.utils.environment import is_local_blockchain_environment
+from ..asserters import assert_expected_events_occurred_for_successful_transaction, \
     assert_dynamic_token_amount_event_is_correct, assert_static_token_amount_event_is_correct
 
+if not is_local_blockchain_environment():
+    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):

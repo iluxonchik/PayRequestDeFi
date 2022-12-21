@@ -7,6 +7,10 @@ from brownie.network.transaction import TransactionReceipt, Status
 from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contract import ContractBuilder
+from scripts.utils.environment import is_local_blockchain_environment
+
+if not is_local_blockchain_environment():
+    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):

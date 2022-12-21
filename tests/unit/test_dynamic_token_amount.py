@@ -12,12 +12,15 @@ from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contants import PaymentFailedAt
 from scripts.utils.contract import ContractBuilder
-from .asserters import (
+from scripts.utils.environment import is_local_blockchain_environment
+from ..asserters import (
     assert_expected_events_occurred_for_successful_transaction,
     assert_expected_events_occurred_for_failed_transaction, assert_receipt_metadata_is_correct,
 )
-from .dto import IntegerValue, IntegerValueRange, ValueRange
+from ..dto import IntegerValue, IntegerValueRange, ValueRange
 
+if not is_local_blockchain_environment():
+    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):

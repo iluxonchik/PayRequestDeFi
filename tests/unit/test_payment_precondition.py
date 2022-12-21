@@ -8,11 +8,16 @@ from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contants import EventName, PaymentFailedAt
 from scripts.utils.contract import ContractBuilder
+from scripts.utils.environment import is_local_blockchain_environment
 from scripts.utils.types import NFTOwnerPaymentPreconditionWithMeta
-from .asserters import (
+from ..asserters import (
     assert_expected_events_occurred_for_successful_transaction,
     assert_expected_events_occurred_for_failed_transaction,
 )
+
+if not is_local_blockchain_environment():
+    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
