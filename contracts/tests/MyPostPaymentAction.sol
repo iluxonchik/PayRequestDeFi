@@ -6,30 +6,30 @@ import "contracts/Receipt.sol";
 import {Payment} from "contracts/libraries/Payment.sol";
 
 contract MyPostPaymentAction is IPostPaymentAction {
-    event DynamicTokenAmountPPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr);
-    event StaticTokenAmountPPAExecuted(address receiptAddr, uint256 receiptId, address receiptTokenAddr, uint256 receiptTokenAmount, address payer, address payee, address paymentPreconditionAddr, address paymentRequestTokenAddr, uint256 paymentRequestTokenAmount);
+    event DynamicTokenAmountPPAExecuted(address receipt, uint256 receiptId, address receiptToken, uint256 receiptTokenAmount, address payer, address payee, address paymentPrecondition);
+    event StaticTokenAmountPPAExecuted(address receipt, uint256 receiptId, address receiptToken, uint256 receiptTokenAmount, address payer, address payee, address paymentPrecondition, address paymentRequestToken, uint256 paymentRequestTokenAmount);
 
 
-    function onPostPayment(address receiptAddr, uint256 receiptId) override external {
-        Receipt receipt = Receipt(receiptAddr);
-        Payment.Receipt memory receiptMetadata  = receipt.getReceipt(receiptId);
-        address tokenAddr = receiptMetadata.tokenAddr;
+    function onPostPayment(address receipt, uint256 receiptId) override external {
+        Receipt receiptContract = Receipt(receipt);
+        Payment.ReceiptData memory receiptMetadata  = receiptContract.getReceiptData(receiptId);
+        address token = receiptMetadata.token;
         uint256 tokenAmount = receiptMetadata.tokenAmount;
-        address payer = receiptMetadata.payerAddr;
-        address payee = receiptMetadata.payeeAddr;
+        address payer = receiptMetadata.payer;
+        address payee = receiptMetadata.payee;
 
-        address paymentRequestAddr = receiptMetadata.paymentRequestAddr;
+        address paymentRequestAddr = receiptMetadata.paymentRequest;
         uint256 paymentRequestId = receiptMetadata.paymentRequestId;
         PaymentRequest paymentRequest = PaymentRequest(paymentRequestAddr);
-        address paymentPreconditionAddr = paymentRequest.getPaymentPreconditionAddr(paymentRequestId);
+        address paymentPrecondition = paymentRequest.getPaymentPrecondition(paymentRequestId);
 
         if (paymentRequest.isTokenAmountStatic(paymentRequestId)) {
             Payment.TokenAmountInfo[] memory tokenAmounts = paymentRequest.getStaticTokenAmountInfos(paymentRequestId);
-            address firstTokenAddr = tokenAmounts[0].tokenAddr;
-            uint256 tokenAmountStatic = paymentRequest.getStaticAmountForToken(paymentRequestId, firstTokenAddr);
-            emit StaticTokenAmountPPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr, firstTokenAddr, tokenAmountStatic);
+            address firstToken = tokenAmounts[0].token;
+            uint256 tokenAmountStatic = paymentRequest.getStaticAmountForToken(paymentRequestId, firstToken);
+            emit StaticTokenAmountPPAExecuted(receipt, receiptId, token, tokenAmount, payer, payee, paymentPrecondition, firstToken, tokenAmountStatic);
         } else {
-            emit DynamicTokenAmountPPAExecuted(receiptAddr, receiptId, tokenAddr, tokenAmount, payer, payee, paymentPreconditionAddr);
+            emit DynamicTokenAmountPPAExecuted(receipt, receiptId, token, tokenAmount, payer, payee, paymentPrecondition);
         }
 
     }

@@ -8,7 +8,7 @@ contract FixedDynamicTokenAmount is IDynamicTokenAmount {
         price = _price;
     }
 
-    function getAmountForToken(uint256 paymentRequestId, address tokenAddr, address payer) external override returns (uint256) {
+    function getAmountForToken(uint256 paymentRequestId, address token, address payer) external override returns (uint256) {
         return price;
     }
 }
