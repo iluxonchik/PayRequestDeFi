@@ -10,18 +10,16 @@ from scripts.utils.contants import EventName, PaymentFailedAt
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.environment import is_local_blockchain_environment
 from scripts.utils.types import NFTOwnerPaymentPreconditionWithMeta
-from ..asserters import (
+from tests.asserters import (
     assert_expected_events_occurred_for_successful_transaction,
     assert_expected_events_occurred_for_failed_transaction,
 )
-
-if not is_local_blockchain_environment():
-    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
     pass
+
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_creator_attempts_to_purchase_exclusive_token_THEN_error_occurs(
     *args, **kwargs
@@ -95,12 +93,12 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_non_nft_owner_not_payment_cr
     assert payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id)
+        payment_request.getPaymentPrecondition(payment_request_id)
         == precondition.address
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO
 
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creator_attempts_to_purchase_exclusive_token_THEN_only_exclusive_token_purchase_is_allowed(
@@ -179,12 +177,12 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_not_payment_creato
     assert payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id)
+        payment_request.getPaymentPrecondition(payment_request_id)
         == precondition.address
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO
 
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creator_attempts_to_purchase_exclusive_token_THEN_only_non_exclusive_token_purchase_is_allowed(
@@ -277,12 +275,12 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creato
     assert payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id)
+        payment_request.getPaymentPrecondition(payment_request_id)
         == precondition.address
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO
 
 
 def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creator_attempts_to_purchase_exclusive_token_THEN_both_token_purchases_are_allowed(
@@ -371,9 +369,9 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_nft_owner_and_payment_creato
     assert payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id)
+        payment_request.getPaymentPrecondition(payment_request_id)
         == precondition.address
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO

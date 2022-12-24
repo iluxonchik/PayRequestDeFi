@@ -13,14 +13,11 @@ from web3.constants import ADDRESS_ZERO
 from scripts.utils.contants import PaymentFailedAt
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.environment import is_local_blockchain_environment
-from ..asserters import (
+from tests.asserters import (
     assert_expected_events_occurred_for_successful_transaction,
     assert_expected_events_occurred_for_failed_transaction, assert_receipt_metadata_is_correct,
 )
-from ..dto import IntegerValue, IntegerValueRange, ValueRange
-
-if not is_local_blockchain_environment():
-    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
+from tests.dto import IntegerValue, IntegerValueRange, ValueRange
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
@@ -89,12 +86,12 @@ def test_GIVEN_fixed_price_computer_function_WHEN_attempt_to_purchase_is_made_TH
     assert not payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id) == ADDRESS_ZERO
+        payment_request.getPaymentPrecondition(payment_request_id) == ADDRESS_ZERO
     )
     assert (
-        payment_request.getDynamicTokenAmountAddr(payment_request_id)
+        payment_request.getDynamicTokenAmount(payment_request_id)
         == price_computer.address
     )
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Tuple, List, Dict, Type
 
 import pytest
-from brownie import PaymentRequest, MyERC20, Receipt
+from brownie import PaymentRequest, MyERC20, Receipt, SharedReceipt
 from brownie import accounts
 from brownie.exceptions import VirtualMachineError
 from brownie.network.account import Account
@@ -17,9 +17,6 @@ from web3.constants import ADDRESS_ZERO
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.environment import is_local_blockchain_environment
 
-if not is_local_blockchain_environment():
-    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
-
 @pytest.fixture(autouse=True)
 def shared_setup(fn_isolation):
     pass
@@ -29,9 +26,7 @@ def test_GIVEN_payment_request_WHEN_deployed_THEN_deployment_succeeds(*args, **k
     contract_builder: ContractBuilder = ContractBuilder(
         account=account, force_deploy=True
     )
-    rc: Receipt = ContractBuilder.get_receipt_contract(
-        account=account, force_deploy=True
-    )
+    rc: Receipt = contract_builder.SharedReceipt
     pr: ProjectContract = contract_builder.get_payment_request_contract(
         receipt=rc, account=account, force_deploy=True
     )
@@ -123,11 +118,11 @@ def test_GIVEN_single_token_price_pair_from_non_deployer_account_WHEN_payment_re
     assert not payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id) == ADDRESS_ZERO
+        payment_request.getPaymentPrecondition(payment_request_id) == ADDRESS_ZERO
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO
 
     tx: TransactionReceipt = payment_request.getAmountForToken(
         payment_request_id, token_addr
@@ -260,11 +255,11 @@ def test_GIVEN_multiple_token_price_pair_from_non_deployer_account_WHEN_payment_
     assert not payment_request.isPaymentPreconditionSet(payment_request_id)
     assert not payment_request.isPaymentPostActionSet(payment_request_id)
 
-    assert payment_request.getPostPaymentActionAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getPostPaymentAction(payment_request_id) == ADDRESS_ZERO
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id) == ADDRESS_ZERO
+        payment_request.getPaymentPrecondition(payment_request_id) == ADDRESS_ZERO
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO
 
     assert (
         payment_request.getStaticTokenAmountInfos(payment_request_id) == static_prices

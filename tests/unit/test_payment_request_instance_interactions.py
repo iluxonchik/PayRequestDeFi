@@ -9,12 +9,10 @@ from web3.constants import ADDRESS_ZERO
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.environment import is_local_blockchain_environment
 
-if not is_local_blockchain_environment():
-    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
-
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
     pass
+
 
 # Payment Request Enable/Disable Tests
 def test_GIVEN_deployed_contract_WHEN_owner_attempting_to_disable_and_enable_THEN_it_succeeds_and_correct_events_are_emitted(

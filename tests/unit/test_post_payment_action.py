@@ -14,11 +14,8 @@ from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.environment import is_local_blockchain_environment
-from ..asserters import assert_expected_events_occurred_for_successful_transaction, \
+from tests.asserters import assert_expected_events_occurred_for_successful_transaction, \
     assert_dynamic_token_amount_event_is_correct, assert_static_token_amount_event_is_correct
-
-if not is_local_blockchain_environment():
-    pytest.skip(f"Skipping tests from {__file__} as a non-local blockchain environment is used.", allow_module_level=True)
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
@@ -99,13 +96,13 @@ def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_
     assert payment_request.isPaymentPostActionSet(payment_request_id)
 
     assert (
-        payment_request.getPostPaymentActionAddr(payment_request_id)
+        payment_request.getPostPaymentAction(payment_request_id)
         == post_payment_action.address
     )
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id) == ADDRESS_ZERO
+        payment_request.getPaymentPrecondition(payment_request_id) == ADDRESS_ZERO
     )
-    assert payment_request.getDynamicTokenAmountAddr(payment_request_id) == ADDRESS_ZERO
+    assert payment_request.getDynamicTokenAmount(payment_request_id) == ADDRESS_ZERO
 
 
 @example(price_in_tokens=0, use_separate_account_for_pay=True)
@@ -185,13 +182,13 @@ def test_GIVEN_dynamic_prices_and_post_payment_action_WHEN_payment_is_succesfull
     assert payment_request.isPaymentPostActionSet(payment_request_id)
 
     assert (
-        payment_request.getPostPaymentActionAddr(payment_request_id)
+        payment_request.getPostPaymentAction(payment_request_id)
         == post_payment_action.address
     )
     assert (
-        payment_request.getPaymentPreconditionAddr(payment_request_id) == ADDRESS_ZERO
+        payment_request.getPaymentPrecondition(payment_request_id) == ADDRESS_ZERO
     )
     assert (
-        payment_request.getDynamicTokenAmountAddr(payment_request_id)
+        payment_request.getDynamicTokenAmount(payment_request_id)
         == price_computer.address
     )

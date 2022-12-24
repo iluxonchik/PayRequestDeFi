@@ -1,9 +1,10 @@
 import random
-from typing import cast
+from typing import cast, Optional
 
-from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721, FixedDynamicTokenAmount, MyPostPaymentAction
+from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721, FixedDynamicTokenAmount, MyPostPaymentAction, SharedReceipt
 from brownie.network.account import Account
 from brownie.network.contract import ContractContainer, ProjectContract
+from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.types import NFTOwnerPaymentPreconditionMeta, NFTOwnerPaymentPreconditionWithMeta
 
@@ -26,13 +27,18 @@ class ContractBuilder:
         self._force_deploy = force_deploy
 
     @staticmethod
+    def get_shared_receipt_contract(*, account: Account, force_deploy: bool = False) -> Receipt:
+        args: tuple = (SharedReceipt, account, "Receipt", "RCT")
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
     def get_receipt_contract(*, account: Account, force_deploy: bool = False) -> Receipt:
         args: tuple = (Receipt, account, "Receipt", "RCT")
         return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
     @staticmethod
-    def get_payment_request_contract(*, receipt: Receipt, account: Account, force_deploy: bool = False) -> PaymentRequest:
-        args: tuple = (PaymentRequest, account, "PaymentRequest", "PRQ", receipt)
+    def get_payment_request_contract(*, account: Account, receipt: Optional[ContractContainer] = None, force_deploy: bool = False) -> PaymentRequest:
+        args: tuple = (PaymentRequest, account, "PaymentRequest", "PRQ", receipt if receipt is not None else ADDRESS_ZERO)
         return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
     @staticmethod
@@ -73,9 +79,12 @@ class ContractBuilder:
         return self.get_receipt_contract(account=self._account, force_deploy=self._force_deploy)
 
     @property
+    def SharedReceipt(self) -> SharedReceipt:
+        return self.get_shared_receipt_contract(account=self._account, force_deploy=self._force_deploy)
+
+    @property
     def PaymentRequest(self) -> PaymentRequest:
-        receipt: Receipt = self.get_receipt_contract(account=self.account, force_deploy=self._force_deploy)
-        return self.get_payment_request_contract(receipt=receipt, account=self._account, force_deploy=self._force_deploy)
+        return self.get_payment_request_contract(account=self._account, force_deploy=self._force_deploy)
     @property
     def MyERC20(self) -> MyERC20:
         return self.get_my_erc20_contract(account=self._account, force_deploy=self._force_deploy)

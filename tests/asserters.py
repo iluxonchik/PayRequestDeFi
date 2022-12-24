@@ -1,27 +1,16 @@
-import random
-from collections import defaultdict
-from dataclasses import dataclass
-from typing import Tuple, OrderedDict, Optional, List, Dict, Type
+from typing import Optional, List
 
-from brownie.network.event import EventDict, _EventItem
-from brownie.test import given, strategy
 import pytest
-from brownie import network, accounts
-from brownie import PaymentRequest, MyERC20, MyERC721, Receipt, NFTOwnerPaymentPrecondition, FixedDynamicTokenAmount, MyPostPaymentAction
-from brownie.exceptions import VirtualMachineError
-from brownie.network.account import Account
-from brownie.network.contract import ProjectContract, Contract
-from brownie.network.transaction import TransactionReceipt, Status
-from hypothesis import example
-from web3.constants import ADDRESS_ZERO
+from brownie import Receipt
+from brownie.network.contract import ProjectContract
+from brownie.network.event import EventDict, _EventItem
+from brownie.network.transaction import TransactionReceipt
 
-from scripts.utils.contants import LOCAL_BLOCKCHAIN_ENVIRONMENTS, EventName, ExpectedEventsFor, PaymentFailedAt
-from scripts.utils.contract import ContractBuilder
-from scripts.utils.types import NFTOwnerPaymentPreconditionMeta, NFTOwnerPaymentPreconditionWithMeta
+from scripts.utils.contants import EventName, ExpectedEventsFor
 
 
 def assert_receipt_metadata_is_correct(*, receipt: Receipt, receipt_id: int, payment_request_addr: str, payment_request_id: int, token_addr: str, token_amount: int, payer_addr: str, payee_addr: str):
-    assert receipt.receipt(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr)
+    assert receipt.getReceiptData(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr)
 
 def assert_dynamic_token_amount_event_is_correct(*,
                                                  events: Optional[EventDict],
@@ -36,13 +25,13 @@ def assert_dynamic_token_amount_event_is_correct(*,
 
     event_data: _EventItem = events[EventName.DYNAMIC_TOKEN_AMOUNT_PPA_EXECUTED]
     assert event_data == {
-        "receiptAddr": receipt_addr,
+        "receipt": receipt_addr,
         "receiptId": receipt_id,
-        "receiptTokenAddr": receipt_token_addr,
+        "receiptToken": receipt_token_addr,
         "receiptTokenAmount": receipt_token_amount,
         "payer": payer,
         "payee": payee,
-        "paymentPreconditionAddr": payment_precondition_addr,
+        "paymentPrecondition": payment_precondition_addr,
     }
 def assert_static_token_amount_event_is_correct(*,
                                                 events: Optional[EventDict],
@@ -56,17 +45,16 @@ def assert_static_token_amount_event_is_correct(*,
                                                 payment_request_token_price: int):
     if not events:
         pytest.fail("Passed events are None or empty")
-
     event_data: _EventItem = events[EventName.STATIC_TOKEN_AMOUNT_PPA_EXECUTED]
     assert event_data == {
-        "receiptAddr": receipt_addr,
+        "receipt": receipt_addr,
         "receiptId": receipt_id,
-        "receiptTokenAddr": receipt_token_addr,
+        "receiptToken": receipt_token_addr,
         "receiptTokenAmount": receipt_token_amount,
         "payer": payer,
         "payee": payee,
-        "paymentPreconditionAddr": payment_precondition_addr,
-        "paymentRequestTokenAddr": payment_request_token_addr,
+        "paymentPrecondition": payment_precondition_addr,
+        "paymentRequestToken": payment_request_token_addr,
         "paymentRequestTokenAmount": payment_request_token_price,
     }
 
