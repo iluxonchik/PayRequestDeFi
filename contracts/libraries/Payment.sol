@@ -10,16 +10,16 @@ library Payment {
 
     /// @notice Token amount interface. Contains the address of the token and its amount. Useful abstraction for pulic input paramaters.
     struct TokenAmountInfo {
-        address tokenAddr;
+        address token;
         uint256 tokenAmount;
     }
 
-    struct Receipt {
-        address paymentRequestAddr;
+    struct ReceiptData {
+        address paymentRequest;
         uint256 paymentRequestId;
-        address tokenAddr;
+        address token;
         uint256 tokenAmount;
-        address payerAddr;
-        address payeeAddr;
+        address payer;
+        address payee;
     }
 }

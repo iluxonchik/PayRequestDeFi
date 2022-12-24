@@ -17,13 +17,13 @@ import "./Receipt.sol";
 contract PaymentRequest is ERC721Enumerable {
 
     event PaymentPreconditionPassed(
-        uint256 paymentRequestId,
+        uint256 indexed paymentRequestId,
         address payer,
         address token
     );
 
     event TokenAmountObtained(
-        uint256 PaymentRequestId,
+        uint256 indexed PaymentRequestId,
         address payer,
         address token,
         uint256 amount,
@@ -31,13 +31,13 @@ contract PaymentRequest is ERC721Enumerable {
     );
 
     event PostPaymentActionExecuted(
-        uint256 paymentRequestId,
+        uint256 indexed paymentRequestId,
         address action,
         uint256 receiptId
     );
 
     event PaymentRequestPaid(
-        uint256 paymentRequestId,
+        uint256 indexed paymentRequestId,
         uint256 receiptId,
         address payer,
         address payee,
@@ -46,8 +46,8 @@ contract PaymentRequest is ERC721Enumerable {
     );
 
     
-    event PaymentRequestEnabled(uint256 paymentRequestId, address enabledBy);
-    event PaymentRequestDisabled(uint256 paymentRequestId, address disabledBy);
+    event PaymentRequestEnabled(uint256 indexed paymentRequestId, address enabledBy);
+    event PaymentRequestDisabled(uint256 indexed paymentRequestId, address disabledBy);
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenId;
@@ -65,17 +65,17 @@ contract PaymentRequest is ERC721Enumerable {
     constructor(
         string memory name,
         string memory symbol,
-        address customReceiptAddr
+        address customReceipt
     ) ERC721(name, symbol) {
         // you can either utilize an existing Receipt contract or deploy your own
-        if (customReceiptAddr == address(0)) {
+        if (customReceipt == address(0)) {
             // no custom receipt address provided, deploy one
             string memory receiptName = string.concat(name, " Receipt");
             string memory receiptSymbol = string.concat(symbol, "RCT");
-           receipt = new Receipt(receiptName, receiptSymbol);
+            receipt = new Receipt(receiptName, receiptSymbol);
         } else {
             // custom receipt address provided
-            receipt = Receipt(customReceiptAddr);
+            receipt = Receipt(customReceipt);
         }
     }
 
@@ -130,40 +130,40 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenIdToAmountArray[paymentRequestId][index].tokenAmount;
     }
 
-    function getStaticAmountForToken(uint256 paymentRequestId, address tokenAddr) public view returns (uint256) {
+    function getStaticAmountForToken(uint256 paymentRequestId, address token) public view returns (uint256) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
 
-        Payment.TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][tokenAddr];
+        Payment.TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
         
         require(tokenAmount.isSet, "Payments in the provided token are not accepted.");
         
         return tokenAmount.tokenAmount;
     }
 
-    function getPostPaymentActionAddr(uint256 paymentRequestId) public view returns (address) {
+    function getPostPaymentAction(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToPostPaymentAction[paymentRequestId];
     }
 
-    function getPaymentPreconditionAddr(uint256 paymentRequestId) public view returns (address) {
+    function getPaymentPrecondition(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToPaymentPrecondition[paymentRequestId];
     }
 
-    function getDynamicTokenAmountAddr(uint256 paymentRequestId) public view returns (address) {
+    function getDynamicTokenAmount(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToDynamicTokenAmount[paymentRequestId];
     }
 
 
     /// @notice Get the price when a dynamic pricing scheme is in use. This is the only method available in this
     /// contract to query for the dynamic price of a token. Since its logic is arbitrary, other methods may be
-    /// infeasible to implement. An example of that would be an IAmountComputer that accepts any token converted
+    /// infeasible to implement. An example of that would be an IDynamicTokenAmountInfo that accepts any token converted
     /// to a stablecoin such as USDT. Operations like listing all of the accepted token IDs becomes impractical
-    function getDynamicAmountForToken(uint256 paymentRequestId, address tokenAddr) public returns (uint256) {
+    function getDynamicAmountForToken(uint256 paymentRequestId, address token) public returns (uint256) {
         require(isTokenAmountDynamic(paymentRequestId), "Amount of the provided PaymentRequest ID is not dynamic.");
-        address priceComputerAddr = tokenIdToDynamicTokenAmount[paymentRequestId];
-        IDynamicTokenAmount priceComputer = IDynamicTokenAmount(priceComputerAddr);
-        return priceComputer.getAmountForToken(
+        address dynamicTokenAmountAddr = tokenIdToDynamicTokenAmount[paymentRequestId];
+        IDynamicTokenAmount dynamicTokenAmount = IDynamicTokenAmount(dynamicTokenAmountAddr);
+        return dynamicTokenAmount.getAmountForToken(
                 paymentRequestId,
-                tokenAddr,
+                token,
                 msg.sender
             );
     }
@@ -186,14 +186,14 @@ contract PaymentRequest is ERC721Enumerable {
 
         for (uint256 i = 0; i < prices.length; i++) {
             Payment.TokenAmountInfo memory price = prices[i];
-            require(!tokenIdToAmountMap[tokenId][price.tokenAddr].isSet, "Multiple token amounts for the same token provided.");
-            tokenIdToAmountMap[tokenId][price.tokenAddr] = Payment
+            require(!tokenIdToAmountMap[tokenId][price.token].isSet, "Multiple token amounts for the same token provided.");
+            tokenIdToAmountMap[tokenId][price.token] = Payment
                 .TokenAmountMappingValue({
                     tokenAmount: price.tokenAmount,
                     isSet: true
                 });
             tokenIdToAmountArray[tokenId].push(price);
-            tokenIdToAcceptedStaticTokens[tokenId].push(price.tokenAddr);
+            tokenIdToAcceptedStaticTokens[tokenId].push(price.token);
         }
     }
 
@@ -225,17 +225,17 @@ contract PaymentRequest is ERC721Enumerable {
     /// Both parts done in a single function to be more gas efficient.
     function getAmountForToken(
         uint256 paymentRequestId,
-        address tokenAddr
+        address token
     ) public returns (uint256) {
         bool isPaymentStatic = true;
-        uint256 price = isTokenAmountStatic(paymentRequestId) ? getStaticAmountForToken(paymentRequestId, tokenAddr) : getDynamicAmountForToken(paymentRequestId, tokenAddr);
-        emit TokenAmountObtained(paymentRequestId, tokenAddr, msg.sender, price, isPaymentStatic);
+        uint256 price = isTokenAmountStatic(paymentRequestId) ? getStaticAmountForToken(paymentRequestId, token) : getDynamicAmountForToken(paymentRequestId, token);
+        emit TokenAmountObtained(paymentRequestId, token, msg.sender, price, isPaymentStatic);
         return price;
     }
 
     function _checkPaymentPrecondition(
         uint256 paymentRequestId,
-        address tokenAddr
+        address token
     ) internal {
         // Check if pre-conditions for payment are met. For example, perhaps you only want to allow this product
         // to be purchaseable by addresses who own a particular NFT, or perhaps owners of a particular NFT are allowed
@@ -251,7 +251,7 @@ contract PaymentRequest is ERC721Enumerable {
                 .isPaymentPreconditionMet(
                     paymentRequestId,
                     msg.sender,
-                    tokenAddr
+                    token
                 );
             
             require(isPaymentPreconditionMet, "Payment precondition not met");
@@ -259,14 +259,14 @@ contract PaymentRequest is ERC721Enumerable {
             emit PaymentPreconditionPassed(
                 paymentRequestId,
                 msg.sender,
-                tokenAddr);
+                token);
             
         }
     }
 
     function _performTokenTransfer(
         uint256 paymentRequestId,
-        address tokenAddr,
+        address token,
         uint256 tokenAmount
     ) internal {
         // immune to attack described in https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729,
@@ -279,7 +279,7 @@ contract PaymentRequest is ERC721Enumerable {
             3. move tokens from this contract to seller
         */
 
-        IERC20 erc20Token = IERC20(tokenAddr);
+        IERC20 erc20Token = IERC20(token);
 
         bool isIntermediaryTransferSuccess = erc20Token.transferFrom(
             msg.sender,
@@ -303,12 +303,12 @@ contract PaymentRequest is ERC721Enumerable {
 
     function _emitReceipt(
         uint256 paymentRequestId,
-        address tokenAddr,
+        address token,
         uint256 tokenAmount
     ) internal returns (uint256) {
         return receipt.create(
                 paymentRequestId,
-                tokenAddr,
+                token,
                 tokenAmount,
                 msg.sender,
                 ownerOf(paymentRequestId)
@@ -356,7 +356,7 @@ contract PaymentRequest is ERC721Enumerable {
     // distinct contracts, which would be acting akin to an L2 for this L1.
 
     // In my vision, there are two variables in the semantics:
-    // * static or dynamic price definition - results in the prices and priceComputer parameters
+    // * static or dynamic price definition - results in the prices and dynamicTokenAmount parameters
     // * proxied or non-proxied creation - results in the presence or absence of the payTo parameter
 
     // Initially I started with overloading, but practical deliberation revealed that more explicit constructors
@@ -377,7 +377,7 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     function createWithDynamicTokenAmountFor(
-        address priceComputer,
+        address dynamicTokenAmount,
         address payTo,
         address paymentPrecondition,
         address postPaymentAction
@@ -385,7 +385,7 @@ contract PaymentRequest is ERC721Enumerable {
         uint256 tokenId = _createCommonBase(payTo, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
-        tokenIdToDynamicTokenAmount[tokenId] = priceComputer;
+        tokenIdToDynamicTokenAmount[tokenId] = dynamicTokenAmount;
 
         return tokenId;
     }
@@ -399,11 +399,11 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     function createWithDynamicTokenAmount(
-        address priceComputer,
+        address dynamicTokenAmount,
         address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
-        return createWithDynamicTokenAmountFor(priceComputer, msg.sender, paymentPrecondition, postPaymentAction);
+        return createWithDynamicTokenAmountFor(dynamicTokenAmount, msg.sender, paymentPrecondition, postPaymentAction);
     }
 
     /* == END PaymentRequest creation procedures == */
@@ -447,21 +447,21 @@ contract PaymentRequest is ERC721Enumerable {
 
     /* == END PaymentRequest state readers == */
 
-    function pay(uint256 paymentRequestId, address tokenAddr)
+    function pay(uint256 paymentRequestId, address token)
         external
         paymentRequestIsEnabled(paymentRequestId)
         returns (uint256)
     {
-        _checkPaymentPrecondition(paymentRequestId, tokenAddr);
+        _checkPaymentPrecondition(paymentRequestId, token);
 
         uint256 tokenAmount = getAmountForToken(
             paymentRequestId,
-            tokenAddr
+            token
         );
 
         _performTokenTransfer(
             paymentRequestId,
-            tokenAddr,
+            token,
             tokenAmount
         );
 
@@ -469,12 +469,12 @@ contract PaymentRequest is ERC721Enumerable {
         // PaymentReqeust has been successfully paid, emit receipt
         uint256 receiptId = _emitReceipt(
             paymentRequestId,
-            tokenAddr,
+            token,
             tokenAmount
         );
         _executePostPaymentAction(paymentRequestId, receiptId);
 
-        emit PaymentRequestPaid(paymentRequestId, receiptId, msg.sender, ownerOf(paymentRequestId), tokenAddr, tokenAmount);
+        emit PaymentRequestPaid(paymentRequestId, receiptId, msg.sender, ownerOf(paymentRequestId), token, tokenAmount);
         return receiptId;
     }
 }

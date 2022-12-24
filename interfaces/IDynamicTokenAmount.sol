@@ -6,6 +6,6 @@ interface IDynamicTokenAmount {
     // would return a boolean. However, this is not required for the functionality of the PaymentRequest. If desired,
     // it can be implemented as a part of a separate interface.
 
-    /// @notice Returns the amount for a given TokenID.
-    function getAmountForToken(uint256 paymentRequestId, address tokenAddr, address payer) external returns (uint256);
+    /// @notice Returns the amount of tokens for a particular paymentRequest ID.
+    function getAmountForToken(uint256 paymentRequestId, address token, address payer) external returns (uint256);
  }

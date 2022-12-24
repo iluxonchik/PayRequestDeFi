@@ -6,5 +6,5 @@ interface IPostPaymentAction {
     /// Since the receipt address is passed alongside its ID, the post-payment action can operate with multiple distinct
     /// receipt contracts, which means it can operate with distinct BillingRequest contract implementations, which also
     /// allows it to function on contract upgrades.
-    function onPostPayment(address receiptAddr, uint256 receiptId) external;
+    function onPostPayment(address receipt, uint256 receiptId) external;
 }

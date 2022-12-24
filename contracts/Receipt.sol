@@ -19,25 +19,25 @@ contract Receipt is ERC721Enumerable, Ownable {
 
     constructor(string memory name, string memory symbol) ERC721(name, symbol) {}
 
-    function create(uint256 paymentRequestId, address tokenAddr, uint256 tokenAmount, address payerAddr, address payeeAddr) public virtual onlyOwner returns (uint256) {
+    function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee) public virtual onlyOwner returns (uint256) {
         uint256 receiptId = _tokenId.current();
-        _mint(payerAddr, receiptId);
+        _mint(payer, receiptId);
         _tokenId.increment();
 
         // technically, this receipt can be emitted by anyone, so msg.sender can be arbitrary. as such, you need to verify
-        // what paymentRequestAddr points to. for a Receipt that is only emittable by a particular PaymentRequest contract
+        // what paymentRequest points to. for a Receipt that is only emittable by a particular PaymentRequest contract
         // see ExclusiveReceipt.sol
         receipt[receiptId] = Payment.ReceiptData(
             {
-                paymentRequestAddr: msg.sender, // PaymentRequest that emitted the receipt
+                paymentRequest: msg.sender, // PaymentRequest that emitted the receipt
                 paymentRequestId: paymentRequestId,
-                tokenAddr: tokenAddr,
+                token: token,
                 tokenAmount: tokenAmount,
-                payerAddr: payerAddr, // Address that performed the payment, i.e. called pay() on the PaymentRequest instance
-                payeeAddr: payeeAddr
+                payer: payer, // Address that performed the payment, i.e. called pay() on the PaymentRequest instance
+                payee: payee
             }
         );
-        receiptIdsPaidByAddr[payerAddr].push(receiptId);
+        receiptIdsPaidByAddr[payer].push(receiptId);
         
         return receiptId;
 
