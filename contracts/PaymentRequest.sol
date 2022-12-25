@@ -247,14 +247,14 @@ contract PaymentRequest is ERC721Enumerable {
             IPaymentPrecondition paymentPrecondition = IPaymentPrecondition(
                 paymentPreconditionAddr
             );
-            bool isPaymentPreconditionMet = paymentPrecondition
-                .isPaymentPreconditionMet(
+            bool isPaymentAllowed = paymentPrecondition
+                .isPaymentAllowed(
                     paymentRequestId,
                     msg.sender,
                     token
                 );
             
-            require(isPaymentPreconditionMet, "Payment precondition not met");
+            require(isPaymentAllowed, "Payment precondition not met");
                 
             emit PaymentPreconditionPassed(
                 paymentRequestId,
