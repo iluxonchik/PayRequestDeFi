@@ -22,4 +22,10 @@ library Payment {
         address payer;
         address payee;
     }
+
+    struct OptionalReceiptDataLocation {
+        address data;
+        uint256 dataId;
+        bool isSet;
+    }
 }
