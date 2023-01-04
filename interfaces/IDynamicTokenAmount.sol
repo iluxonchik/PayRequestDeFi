@@ -8,4 +8,9 @@ interface IDynamicTokenAmount {
 
     /// @notice Returns the amount of tokens for a particular paymentRequest ID.
     function getAmountForToken(uint256 paymentRequestId, address token, address payer) external returns (uint256);
+
+    // TODO: add isTokenAccepted() method? this would allow the swapper to query for dynamic tokens.
+    // do we really want to add this to the PaymentRequest? this would enforce all implemenetations to
+    // create it. could it be bad to enforce this on all? what about generic payments?
+    function isTokenAccepted(uint256 paymentRequestId, address token, address payer) external returns (bool);
  }
