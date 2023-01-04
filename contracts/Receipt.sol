@@ -14,7 +14,8 @@ contract Receipt is ERC721Enumerable, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter internal _tokenId;
 
-    mapping(uint256 => Payment.ReceiptData) internal receipt;
+    mapping(uint256 => Payment.ReceiptData) internal receiptData;
+    mapping(uint256 => Payment.OptionalReceiptDataLocation) internal optionalReceiptDataLocation;
     // paymentRequestId --> address (Payer) --> receiptIds paid by Payer
     mapping(address => uint256[]) internal receiptIdsPaidByAddr;
     mapping(uint256 => mapping(address => uint256[])) internal receiptIdsPaidByAddrForPaymentRequestId;
@@ -32,7 +33,7 @@ contract Receipt is ERC721Enumerable, Ownable {
         _mint(payer, receiptId);
         _tokenId.increment();
 
-        receipt[receiptId] = Payment.ReceiptData(
+        receiptData[receiptId] = Payment.ReceiptData(
             {
                 paymentRequest: msg.sender, // PaymentRequest that emitted the receipt
                 paymentRequestId: paymentRequestId,
@@ -47,6 +48,21 @@ contract Receipt is ERC721Enumerable, Ownable {
         
         return receiptId;
 
+    }
+
+    function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
+       uint256 receiptId = create(paymentRequestId, token, tokenAmount, payer, payee);
+        
+        optionalReceiptDataLocation[receiptId] = Payment.OptionalReceiptDataLocation(
+            {
+                data: data, // address of the contract containing extra data
+                dataId: dataId, // ID of the extra data in the "data" smart contract
+                isSet: true
+                
+            }
+        );
+
+        return receiptId;
     }
 
     function balanceOfForPaymentRequestId(uint256 paymentRequestId, address owner) public view virtual returns (uint256) {
@@ -64,25 +80,43 @@ contract Receipt is ERC721Enumerable, Ownable {
     function _beforeTokenTransfer(address from, address to, uint256 receiptId, uint256 batchSize) internal virtual override {
         super._beforeTokenTransfer(from, to, receiptId, batchSize);
         
-        require(to != address(0), "Receipt: Burining of tokens is not permitted");
-        
-        Payment.ReceiptData memory receiptData = receipt[receiptId];
-        uint256 paymentRequestId = receiptData.paymentRequestId;
+        if (batchSize > 1) {
+            // Batching only possible during the construction phase, not after it.
+            revert("Receipt: consecutive transfers not supported");
+        }
+
+        Payment.ReceiptData memory receiptDataStruct = receiptData[receiptId];
+        uint256 paymentRequestId = receiptDataStruct.paymentRequestId;
 
         // First, deal with balances changes
         if (from != address(0)) {
             // receipt is being transferred from "from" to "to" (i.e. non-mint operation)
             _balancesForPaymentRequestId[paymentRequestId][from] -= 1;
         }
-        // "to" is never 0, so its balance will always be incremented
-        _balancesForPaymentRequestId[paymentRequestId][to] += 1;
-
-
-        // TODO: complete below
-        // Now, take care of altering collections as needed
-        if (from == address(0)) {
-            _addTokenToAllTokensEnumerationForPaymentRequestId()
+        if (to != address(0)) {
+            _balancesForPaymentRequestId[paymentRequestId][to] += 1;
         }
+        
+        // Now, take care of altering collections as needed
+        // First, do all of the necessary changes for the "from" address
+        if (from == address(0)) {
+            // mint operation
+            _addTokenToAllTokensEnumerationForPaymentRequestId(paymentRequestId, receiptId);
+        } else if (from != to) {
+            // token transferred to an address distinct from current owner. remove ownership from "from"
+            _removeTokenFromOwnerEnumerationForPaymentRequestId(paymentRequestId, from, receiptId);
+        }
+
+        // Second, do all of the necessary changes for the "to" address
+        if (to == address(0)) {
+            // burn operation
+            _removeTokenFromAllTokensEnumerationForPaymentRequestId(paymentRequestId, receiptId);
+        } else if(to != from) {
+            // token transferred to an address distinct from the current owner. add ownershipt to "to"
+            _addTokenToOwnerEnumerationForPaymentRequestId(paymentRequestId, to, receiptId);
+        } 
+
+
         
     }
 
@@ -100,10 +134,10 @@ contract Receipt is ERC721Enumerable, Ownable {
     function _removeTokenFromAllTokensEnumerationForPaymentRequestId(uint256 paymentRequestId, uint256 receiptId) private {
         // Move last receipt into the place of the token to remove, and delete the last index
         uint256 lastReceiptIndex = _allTokensForPaymentRequestId[paymentRequestId].length;
-        uint256 lastReceiptId = _allTokensForPaymentRequestId[lastReceiptIndex];
+        uint256 lastReceiptId = _allTokensForPaymentRequestId[paymentRequestId][lastReceiptIndex];
         uint256 indexOfReceiptToRemove = _allTokensIndexForPaymentRequestId[paymentRequestId][receiptId];
 
-        _allTokensForPaymentRequestId[paymentRequestId[indexOfReceiptToRemove] = lastReceiptId;
+        _allTokensForPaymentRequestId[paymentRequestId][indexOfReceiptToRemove] = lastReceiptId;
         _allTokensIndexForPaymentRequestId[paymentRequestId][lastReceiptId] = indexOfReceiptToRemove;
 
         delete _allTokensIndexForPaymentRequestId[paymentRequestId][receiptId];
@@ -126,7 +160,21 @@ contract Receipt is ERC721Enumerable, Ownable {
     }
 
     function getReceiptData(uint256 receiptId) public view returns (Payment.ReceiptData memory) {
-        return receipt[receiptId];
+        return receiptData[receiptId];
+    }
+
+    function isOptionalReceiptDataLocationSet(uint256 receiptId) public view returns (bool) {
+        return optionalReceiptDataLocation[receiptId].isSet;
+    }
+
+    function getReceiptDataLocationIfSet(uint256 receiptId) public view returns (Payment.OptionalReceiptDataLocation memory) {
+        Payment.OptionalReceiptDataLocation memory receiptDataLocation = optionalReceiptDataLocation[receiptId];
+        require (receiptDataLocation.isSet, "Optional Receipt Data Location not set.");
+        return receiptDataLocation;
+    }
+
+    function getReceiptDataLocation(uint256 receiptId) external view returns (Payment.OptionalReceiptDataLocation memory) {
+        return optionalReceiptDataLocation[receiptId];
     }
 
     function getNumberOfReceiptsPaidBy(address payer) public view returns (uint256) {
