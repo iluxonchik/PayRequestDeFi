@@ -7,6 +7,9 @@ import "interfaces/IERC20.sol";
 import "interfaces/IPostPaymentAction.sol";
 import "interfaces/IPaymentPrecondition.sol";
 import "interfaces/IDynamicTokenAmount.sol";
+import "interfaces/IPostPaymentActionWithData.sol";
+import "interfaces/IPaymentPreconditionWithData.sol";
+import "interfaces/IDynamicTokenAmountWithData.sol";
 
 import {Payment} from "./libraries/Payment.sol";
 import "contracts/Receipt.sol";
@@ -140,6 +143,28 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenAmount.tokenAmount;
     }
 
+    function isDynamicTokenAccepted(uint256 paymentRequestId, address token) public returns (bool) {
+        require(isTokenAmountDynamic(paymentRequestId), "Amount of the provided PaymentRequest ID is not dynamic.");
+        address dynamicTokenAmountAddr = tokenIdToDynamicTokenAmount[paymentRequestId];
+        IDynamicTokenAmount dynamicTokenAmount = IDynamicTokenAmount(dynamicTokenAmountAddr);
+        return dynamicTokenAmount.isTokenAccepted(
+                paymentRequestId,
+                token,
+                msg.sender
+            );
+    }
+
+    function isStaticTokenAccepted(uint256 paymentRequestId, address token) public view returns (bool) {
+        require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
+        Payment.TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
+        return tokenAmount.isSet;
+    }
+
+    function isTokenAccepted(uint256 paymentRequestId, address token, address payer) public returns(uint256) {
+        // TODO: allow checks for custom, non-msg.sender payer.
+        return 0;
+    }
+
     function getPostPaymentAction(uint256 paymentRequestId) public view returns (address) {
         return tokenIdToPostPaymentAction[paymentRequestId];
     }
@@ -231,6 +256,10 @@ contract PaymentRequest is ERC721Enumerable {
         uint256 price = isTokenAmountStatic(paymentRequestId) ? getStaticAmountForToken(paymentRequestId, token) : getDynamicAmountForToken(paymentRequestId, token);
         emit TokenAmountObtained(paymentRequestId, token, msg.sender, price, isPaymentStatic);
         return price;
+    }
+
+    function isTokenAccepted(uint256 paymentRequestId, address token) public returns (bool) {
+        return isTokenAmountStatic(paymentRequestId) ? isStaticTokenAccepted(paymentRequestId, token) : isDynamicTokenAccepted(paymentRequestId, token);
     }
 
     function _checkPaymentPrecondition(
@@ -446,6 +475,11 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     /* == END PaymentRequest state readers == */
+    
+    function payA(uint256 paymentRequestId, address token, address data, uint256 dataId) external paymentRequestIsEnabled(paymentRequestId) returns (uint256) {
+        // TODO: include arbitrary data with payment Request.
+        return 0;
+    }
 
     function pay(uint256 paymentRequestId, address token)
         external
