@@ -6,7 +6,7 @@ import "contracts/PaymentRequest.sol";
 
 /// @notice Sample payment precondition contract that allows payment in a particular token only if the address has not purchased
 /// the paymentRequestId in question.
-contract NFTOwnerPaymentPrecondition is IPaymentPrecondition {
+contract OnePurchasePerAddressPaymentPrecondition is IPaymentPrecondition {
 
     function isPaymentAllowed(uint256 paymentRequestId, address payer, address token) external override returns(bool) {
         PaymentRequest paymentRequest = PaymentRequest(msg.sender);

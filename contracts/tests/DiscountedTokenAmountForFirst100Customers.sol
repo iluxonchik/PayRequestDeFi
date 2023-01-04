@@ -32,6 +32,8 @@ contract DiscountedTokenAmountForFirst100Customers is IDynamicTokenAmount {
                 return PRICE;
             }
         }
-
+    }
+    function isTokenAccepted(uint256 paymentRequestId, address token, address payer) public override returns (bool) {
+        return true;
     }
 }

@@ -1,0 +1,138 @@
+{
+	"compiler": {
+		"version": "0.8.7+commit.e28d00a7"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_price",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "paymentRequestId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "payer",
+						"type": "address"
+					}
+				],
+				"name": "getAmountForToken",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "paymentRequestId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "payer",
+						"type": "address"
+					}
+				],
+				"name": "isTokenAccepted",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "price",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"getAmountForToken(uint256,address,address)": {
+					"notice": "Returns the amount of tokens for a particular paymentRequest ID."
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/tests/FixeDynamicTokenAmount.sol": "FixedDynamicTokenAmount"
+		},
+		"evmVersion": "london",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/tests/FixeDynamicTokenAmount.sol": {
+			"keccak256": "0x0967dfd000acc23869914ae17a511b85657d39eedd31bd6b0cb49e2f842a4815",
+			"urls": [
+				"bzz-raw://c9c1b7cf581775e9728107cbcba3b03d83ba8e8ac6f92452c2b44c8ea5d1c9d4",
+				"dweb:/ipfs/QmZjje1WvHscsHRHc4VUQ1bXsWBA9t2QhrXD3TMM5PCmsZ"
+			]
+		},
+		"interfaces/IDynamicTokenAmount.sol": {
+			"keccak256": "0xa8d09837a776fedbce4a9c79c0dc61126be30a5014a5c4f9bfe3d209b197bf9d",
+			"urls": [
+				"bzz-raw://573ff97ba0a880dc7da38263f113548530769b899201895dde32800562c1e896",
+				"dweb:/ipfs/QmeZNactnPtcWe8BMpVHJZ1pGJJyRwhuFFS1p5GVwLLkTA"
+			]
+		}
+	},
+	"version": 1
+}
