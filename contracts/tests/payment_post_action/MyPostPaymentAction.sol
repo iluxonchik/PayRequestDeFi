@@ -12,7 +12,7 @@ contract MyPostPaymentAction is IPostPaymentAction {
 
     function onPostPayment(address receipt, uint256 receiptId) override external {
         Receipt receiptContract = Receipt(receipt);
-        Payment.ReceiptData memory receiptMetadata  = receiptContract.getReceiptData(receiptId);
+        ReceiptData memory receiptMetadata  = receiptContract.getReceiptData(receiptId);
         address token = receiptMetadata.token;
         uint256 tokenAmount = receiptMetadata.tokenAmount;
         address payer = receiptMetadata.payer;

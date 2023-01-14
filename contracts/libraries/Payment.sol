@@ -13,19 +13,4 @@ library Payment {
         address token;
         uint256 tokenAmount;
     }
-
-    struct ReceiptData {
-        address paymentRequest;
-        uint256 paymentRequestId;
-        address token;
-        uint256 tokenAmount;
-        address payer;
-        address payee;
-    }
-
-    struct OptionalReceiptDataLocation {
-        address data;
-        uint256 dataId;
-        bool isSet;
-    }
 }

@@ -4,22 +4,35 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import {Payment} from "./libraries/Payment.sol";
+struct ReceiptData {
+        address paymentRequest;
+        uint256 paymentRequestId;
+        address token;
+        uint256 tokenAmount;
+        address payer;
+        address payee;
+}
+
+struct OptionalReceiptDataLocation {
+    address data;
+    uint256 dataId;
+    bool isSet;
+}
 
 /// @notice Receipt that is emitted upon successful payment. A Receipt's ownership is assigned to the payerAddres and it can be
 /// transferred to another address. A record of both, the address that emitted the receipt (a PaymentRequest under regular use-case)
 /// and the original payer. Getter functions to obtain the list of Receipt IDs origninally issued to a particular address are available.
 contract Receipt is ERC721Enumerable, Ownable {
-
     using Counters for Counters.Counter;
     Counters.Counter internal _tokenId;
 
-    mapping(uint256 => Payment.ReceiptData) internal receiptData;
-    mapping(uint256 => Payment.OptionalReceiptDataLocation) internal optionalReceiptDataLocation;
+    mapping(uint256 => ReceiptData) internal receiptData;
+    mapping(uint256 => OptionalReceiptDataLocation) internal optionalReceiptDataLocation;
     // paymentRequestId --> address (Payer) --> receiptIds paid by Payer
     mapping(address => uint256[]) internal receiptIdsPaidByAddr;
     mapping(uint256 => mapping(address => uint256[])) internal receiptIdsPaidByAddrForPaymentRequestId;
     
+    // Strucutres to store and access access ReceiptIDs and their owners for a particular PaymentRequestID
     mapping(uint256 => mapping(address => uint256)) internal _balancesForPaymentRequestId;
     mapping(uint256 => mapping(address => mapping(uint256 => uint256))) internal _ownedTokensForPaymentRequestId;
     mapping(uint256 => mapping(uint256 => uint256)) internal _ownedTokensIndexForPaymentRequestId;
@@ -33,7 +46,7 @@ contract Receipt is ERC721Enumerable, Ownable {
         _mint(payer, receiptId);
         _tokenId.increment();
 
-        receiptData[receiptId] = Payment.ReceiptData(
+        receiptData[receiptId] = ReceiptData(
             {
                 paymentRequest: msg.sender, // PaymentRequest that emitted the receipt
                 paymentRequestId: paymentRequestId,
@@ -53,7 +66,7 @@ contract Receipt is ERC721Enumerable, Ownable {
     function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
        uint256 receiptId = create(paymentRequestId, token, tokenAmount, payer, payee);
         
-        optionalReceiptDataLocation[receiptId] = Payment.OptionalReceiptDataLocation(
+        optionalReceiptDataLocation[receiptId] = OptionalReceiptDataLocation(
             {
                 data: data, // address of the contract containing extra data
                 dataId: dataId, // ID of the extra data in the "data" smart contract
@@ -85,7 +98,7 @@ contract Receipt is ERC721Enumerable, Ownable {
             revert("Receipt: consecutive transfers not supported");
         }
 
-        Payment.ReceiptData memory receiptDataStruct = receiptData[receiptId];
+        ReceiptData memory receiptDataStruct = receiptData[receiptId];
         uint256 paymentRequestId = receiptDataStruct.paymentRequestId;
 
         // First, deal with balances changes
@@ -157,7 +170,7 @@ contract Receipt is ERC721Enumerable, Ownable {
         delete _ownedTokensIndexForPaymentRequestId[paymentRequestId][receiptId];
     }
 
-    function getReceiptData(uint256 receiptId) public view returns (Payment.ReceiptData memory) {
+    function getReceiptData(uint256 receiptId) public view returns (ReceiptData memory) {
         return receiptData[receiptId];
     }
 
@@ -165,7 +178,7 @@ contract Receipt is ERC721Enumerable, Ownable {
         return optionalReceiptDataLocation[receiptId].isSet;
     }
 
-    function getReceiptDataLocation(uint256 receiptId) external view returns (Payment.OptionalReceiptDataLocation memory) {
+    function getReceiptDataLocation(uint256 receiptId) external view returns (OptionalReceiptDataLocation memory) {
         return optionalReceiptDataLocation[receiptId];
     }
 
@@ -207,6 +220,6 @@ contract Receipt is ERC721Enumerable, Ownable {
         return _allTokensForPaymentRequestId[paymentRequestId][index];
     }
 
-    
+
 
 }
