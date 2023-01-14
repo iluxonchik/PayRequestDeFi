@@ -21,7 +21,7 @@ contract TransferNFTPaymentPostAction is IPostPaymentAction {
         // reverted.
 
         address owner = erc721.ownerOf(erc721Id);
-        erc721.transferFrom(owner, address(this), erc721Id);
+        erc721.safeTransferFrom(owner, address(this), erc721Id);
 
         // Now, transfer the NFT from this contract to the payer's contract
         Receipt receiptContract = Receipt(receipt);

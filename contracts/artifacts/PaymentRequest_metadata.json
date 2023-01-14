@@ -344,7 +344,7 @@
 					},
 					{
 						"internalType": "address",
-						"name": "payTo",
+						"name": "owner",
 						"type": "address"
 					},
 					{
@@ -384,7 +384,7 @@
 								"type": "uint256"
 							}
 						],
-						"internalType": "struct Payment.TokenAmountInfo[]",
+						"internalType": "struct TokenAmountInfo[]",
 						"name": "prices",
 						"type": "tuple[]"
 					},
@@ -425,13 +425,13 @@
 								"type": "uint256"
 							}
 						],
-						"internalType": "struct Payment.TokenAmountInfo[]",
+						"internalType": "struct TokenAmountInfo[]",
 						"name": "prices",
 						"type": "tuple[]"
 					},
 					{
 						"internalType": "address",
-						"name": "payTo",
+						"name": "owner",
 						"type": "address"
 					},
 					{
@@ -701,7 +701,7 @@
 								"type": "uint256"
 							}
 						],
-						"internalType": "struct Payment.TokenAmountInfo",
+						"internalType": "struct TokenAmountInfo",
 						"name": "",
 						"type": "tuple"
 					}
@@ -732,7 +732,7 @@
 								"type": "uint256"
 							}
 						],
-						"internalType": "struct Payment.TokenAmountInfo[]",
+						"internalType": "struct TokenAmountInfo[]",
 						"name": "",
 						"type": "tuple[]"
 					}
@@ -1503,24 +1503,17 @@
 			]
 		},
 		"contracts/PaymentRequest.sol": {
-			"keccak256": "0x61092e2d3e371aad10b8f815389943a42ed7d44b2d36e9968d49a3ef8f8e4efd",
+			"keccak256": "0x8bd729589c18074512c67953f174b924f51f16c39fcce79894da53699d80bfce",
 			"urls": [
-				"bzz-raw://db33d52156d5c54d5fed649d08e73b3fa44bdc075e1ccf818102671b409389b2",
-				"dweb:/ipfs/Qme7SyGxBsMPP45oUBpzWnN92vUrqBf6fkoBub2v3qLYEW"
+				"bzz-raw://39ecd14ba4377aad05129536a7f66c2dd2369cdb1c723a01bcfd085379d1c4ab",
+				"dweb:/ipfs/Qmey5eHzZafJR3k8NJhaeGoqWoLzxBS3qCbiPZ3S5jMjar"
 			]
 		},
 		"contracts/Receipt.sol": {
-			"keccak256": "0xa52b58784ca503adac9dc94118a8663669a30a0a3f06d7d553245096a62869ca",
+			"keccak256": "0x422d8e7ceec80693f7817972f5b65efaf23331f5f799a586f665eccf460142a5",
 			"urls": [
-				"bzz-raw://cac65319a64babd4ff3d9a6a0e9074d68f61b4aa65da13c8cd8bdafafd8ffadc",
-				"dweb:/ipfs/QmaiBACBZoG7Xj6Ge86FrsrkBdmAUWg5NwjzS7op22i9iu"
-			]
-		},
-		"contracts/libraries/Payment.sol": {
-			"keccak256": "0x9be802ea426f2d77502becce52725106a2be653ebba870e4d28c310fa335743d",
-			"urls": [
-				"bzz-raw://a9f8c218bfdcef3a03df28b4c533e82f4a6f980c3ea025e22232d5251510d46f",
-				"dweb:/ipfs/QmQTAMqhYdu9wz5w4FkzLcM67tUNxxyQsKFihr1MvDorLn"
+				"bzz-raw://343a8e3be91cc52ee7ab4e719ef5c49a62ae05c2a0831b981d09b2e11f12324f",
+				"dweb:/ipfs/QmPyqHTKESQAK2XT3L4W7pXZm7vvFucBkiABEgreWxUiwR"
 			]
 		},
 		"interfaces/IDynamicTokenAmount.sol": {

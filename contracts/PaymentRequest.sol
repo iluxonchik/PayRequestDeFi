@@ -11,9 +11,20 @@ import "interfaces/IPostPaymentActionWithData.sol";
 import "interfaces/IPaymentPreconditionWithData.sol";
 import "interfaces/IDynamicTokenAmountWithData.sol";
 
-import {Payment} from "./libraries/Payment.sol";
 import "contracts/Receipt.sol";
 import "./Receipt.sol";
+
+/// @notice Amount of token in terms of its amount. Mapping value interface.
+struct TokenAmountMappingValue {
+    uint256 tokenAmount;
+    bool isSet;
+}
+
+/// @notice Token amount interface. Contains the address of the token and its amount. Useful abstraction for pulic input paramaters.
+struct TokenAmountInfo {
+    address token;
+    uint256 tokenAmount;
+}
 
 // in the context below, "PaymentRequest" can be in place of ERC-721 and vice-versa.
 /// @notice PaymentRequest represents a request for a payment, to be paid by some party.
@@ -57,8 +68,8 @@ contract PaymentRequest is ERC721Enumerable {
     Receipt public receipt;
 
     // map of Payment Request ERC-721 to its amounts
-    mapping(uint256 => mapping(address => Payment.TokenAmountMappingValue)) internal tokenIdToAmountMap;
-    mapping(uint256 => Payment.TokenAmountInfo[]) internal tokenIdToAmountArray;
+    mapping(uint256 => mapping(address => TokenAmountMappingValue)) internal tokenIdToAmountMap;
+    mapping(uint256 => TokenAmountInfo[]) internal tokenIdToAmountArray;
     mapping(uint256 => address[]) internal tokenIdToAcceptedStaticTokens;
     mapping(uint256 => address) internal tokenIdToPostPaymentAction;
     mapping(uint256 => address) internal tokenIdToPaymentPrecondition;
@@ -116,13 +127,13 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenIdToAcceptedStaticTokens[paymentRequestId][index];
     }
 
-    // Static Payment.TokenAmountInfo Gettrs
-    function getStaticTokenAmountInfos(uint256 paymentRequestId) public view returns (Payment.TokenAmountInfo[] memory) {
+    // Static TokenAmountInfo Gettrs
+    function getStaticTokenAmountInfos(uint256 paymentRequestId) public view returns (TokenAmountInfo[] memory) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
         return tokenIdToAmountArray[paymentRequestId];
     }
 
-    function getStaticTokenAmountInfoByIndex(uint256 paymentRequestId, uint256 index) public view returns (Payment.TokenAmountInfo memory) {
+    function getStaticTokenAmountInfoByIndex(uint256 paymentRequestId, uint256 index) public view returns (TokenAmountInfo memory) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
         return tokenIdToAmountArray[paymentRequestId][index];
     }
@@ -136,7 +147,7 @@ contract PaymentRequest is ERC721Enumerable {
     function getStaticAmountForToken(uint256 paymentRequestId, address token) public view returns (uint256) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
 
-        Payment.TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
+        TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
         
         require(tokenAmount.isSet, "Payments in the provided token are not accepted.");
         
@@ -156,7 +167,7 @@ contract PaymentRequest is ERC721Enumerable {
 
     function isStaticTokenAccepted(uint256 paymentRequestId, address token) public view returns (bool) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
-        Payment.TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
+        TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
         return tokenAmount.isSet;
     }
 
@@ -205,15 +216,14 @@ contract PaymentRequest is ERC721Enumerable {
     /// scope of the initial version of this module.
     function _storeTokenAmountsInInternalStructures(
         uint256 tokenId,
-        Payment.TokenAmountInfo[] memory prices
+        TokenAmountInfo[] memory prices
     ) internal {
         require(prices.length > 0, "Product prices cannot be empty.");
 
         for (uint256 i = 0; i < prices.length; i++) {
-            Payment.TokenAmountInfo memory price = prices[i];
+            TokenAmountInfo memory price = prices[i];
             require(!tokenIdToAmountMap[tokenId][price.token].isSet, "Multiple token amounts for the same token provided.");
-            tokenIdToAmountMap[tokenId][price.token] = Payment
-                .TokenAmountMappingValue({
+            tokenIdToAmountMap[tokenId][price.token] = TokenAmountMappingValue({
                     tokenAmount: price.tokenAmount,
                     isSet: true
                 });
@@ -395,7 +405,7 @@ contract PaymentRequest is ERC721Enumerable {
     // ownership to another smart contract, but you still want to receive the payments. Perhaps you would allow that
     // other entity to enable/disable your PaymentRequest or transfer its ownership, but
     function createWithStaticTokenAmountFor(
-        Payment.TokenAmountInfo[] memory prices,
+        TokenAmountInfo[] memory prices,
         address owner,
         address paymentPrecondition,
         address postPaymentAction
@@ -423,7 +433,7 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     function createWithStaticTokenAmount(
-        Payment.TokenAmountInfo[] memory prices,
+        TokenAmountInfo[] memory prices,
         address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
