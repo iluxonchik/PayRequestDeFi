@@ -222,13 +222,13 @@ contract PaymentRequest is ERC721Enumerable {
         }
     }
 
-    function _createCommonBase(address payTo, address paymentPrecondition, address postPaymentAction)
+    function _createCommonBase(address owner, address paymentPrecondition, address postPaymentAction)
         internal
         returns (uint256)
     {
         uint256 tokenId = _tokenId.current();
-        // the payments will be done to the owner of the ERC720. the "lending" of payTo should be done via another SC
-        _mint(payTo, tokenId);
+        // the payments will be done to the owner of the ERC720
+        _mint(owner, tokenId);
 
         tokenIdToPostPaymentAction[tokenId] = postPaymentAction;
         tokenIdToEnabled[tokenId] = true;
@@ -380,24 +380,27 @@ contract PaymentRequest is ERC721Enumerable {
 
     // Limiting to only the strictly necessary creators semantically is an intentional decision. Any constructing
     // utilities, such as the numerous create overload possibilities should be deployed as a part of a separate contract.
-    // The payTo option allows for a proxied creation of PaymentRequests. In such an approach, this payment system this
+    // The owner option allows for a proxied creation of PaymentRequests. In such an approach, this payment system this
     // an L1 and its goal is to offer core functionality. Any additional one should be developed as a part of
     // distinct contracts, which would be acting akin to an L2 for this L1.
 
     // In my vision, there are two variables in the semantics:
     // * static or dynamic price definition - results in the prices and dynamicTokenAmount parameters
-    // * proxied or non-proxied creation - results in the presence or absence of the payTo parameter
+    // * proxied or non-proxied creation - results in the presence or absence of the owner parameter
 
     // Initially I started with overloading, but practical deliberation revealed that more explicit constructors
     // are better, as they are also self-documenting.
 
+    // Use case: I still receive the payments, but the owner is another entity. For example, you may transfer the
+    // ownership to another smart contract, but you still want to receive the payments. Perhaps you would allow that
+    // other entity to enable/disable your PaymentRequest or transfer its ownership, but
     function createWithStaticTokenAmountFor(
         Payment.TokenAmountInfo[] memory prices,
-        address payTo,
+        address owner,
         address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
-        uint256 tokenId = _createCommonBase(payTo, paymentPrecondition, postPaymentAction);
+        uint256 tokenId = _createCommonBase(owner, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
         _storeTokenAmountsInInternalStructures(tokenId, prices);
@@ -407,11 +410,11 @@ contract PaymentRequest is ERC721Enumerable {
 
     function createWithDynamicTokenAmountFor(
         address dynamicTokenAmount,
-        address payTo,
+        address owner,
         address paymentPrecondition,
         address postPaymentAction
     ) public returns (uint256) {
-        uint256 tokenId = _createCommonBase(payTo, paymentPrecondition, postPaymentAction);
+        uint256 tokenId = _createCommonBase(owner, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
         tokenIdToDynamicTokenAmount[tokenId] = dynamicTokenAmount;
