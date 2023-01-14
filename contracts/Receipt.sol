@@ -114,9 +114,7 @@ contract Receipt is ERC721Enumerable, Ownable {
         } else if(to != from) {
             // token transferred to an address distinct from the current owner. add ownershipt to "to"
             _addTokenToOwnerEnumerationForPaymentRequestId(paymentRequestId, to, receiptId);
-        } 
-
-
+        }
         
     }
 
@@ -167,12 +165,6 @@ contract Receipt is ERC721Enumerable, Ownable {
         return optionalReceiptDataLocation[receiptId].isSet;
     }
 
-    function getReceiptDataLocationIfSet(uint256 receiptId) public view returns (Payment.OptionalReceiptDataLocation memory) {
-        Payment.OptionalReceiptDataLocation memory receiptDataLocation = optionalReceiptDataLocation[receiptId];
-        require (receiptDataLocation.isSet, "Optional Receipt Data Location not set.");
-        return receiptDataLocation;
-    }
-
     function getReceiptDataLocation(uint256 receiptId) external view returns (Payment.OptionalReceiptDataLocation memory) {
         return optionalReceiptDataLocation[receiptId];
     }
@@ -187,5 +179,34 @@ contract Receipt is ERC721Enumerable, Ownable {
 
     function getReceiptIdPaidByAtIndex(address payer, uint256 index) public view returns (uint256) {
         return receiptIdsPaidByAddr[payer][index];
+    } 
+    
+    function getNumberOfReceiptsForPaymentRequestPaidBy(uint256 paymentRequestId, address payer) public view returns (uint256) {
+        return receiptIdsPaidByAddrForPaymentRequestId[paymentRequestId][payer].length;
     }
+
+    function getReceiptIdsForPaymentRequestPaidBy(uint256 paymentRequestId, address payer) public view returns (uint256[] memory) {
+        return receiptIdsPaidByAddrForPaymentRequestId[paymentRequestId][payer];
+    }
+
+    function getReceiptIdForPaymentRequestPaidByAtIndex(uint256 paymentRequestId, address payer, uint256 index) public view returns (uint256) {
+        return receiptIdsPaidByAddrForPaymentRequestId[paymentRequestId][payer][index];
+    }
+
+    function receiptIdOfOwnerForPaymentRequestIdByIndex(uint256 paymentRequestId, address owner, uint256 index) public view virtual returns (uint256) {
+        require(index < ERC721.balanceOf(owner), "Receipt: owner index out of bounds");
+        return _ownedTokensForPaymentRequestId[paymentRequestId][owner][index];
+    }
+
+    function totalSupplyForPaymentRequestId(uint256 paymentRequestId) public view virtual returns (uint256) {
+        return _allTokensForPaymentRequestId[paymentRequestId].length;
+    }
+
+    function receiptIdPaymentRequestIdByIndex(uint256 paymentRequestId, uint256 index) public view virtual returns (uint256) {
+        require(index < totalSupplyForPaymentRequestId(paymentRequestId), "Receipt: global index out of bounds");
+        return _allTokensForPaymentRequestId[paymentRequestId][index];
+    }
+
+    
+
 }
