@@ -1,10 +1,8 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "interfaces/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "contracts/Receipt.sol";
-
-import {Payment} from "contracts/libraries/Payment.sol";
 
 /// @notice SharedReceipt is a type of receipt, where any contract is allowed to create an instance of it. It may be useful in a sceenario
 /// where the same Receipt can be emitted for multiple PaymentRequests. This contract is for EXAMPLE purposes only, to showcase how such

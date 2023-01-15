@@ -3,8 +3,6 @@ import "interfaces/IPostPaymentAction.sol";
 import "contracts/PaymentRequest.sol";
 import "contracts/Receipt.sol";
 
-import {Payment} from "contracts/libraries/Payment.sol";
-
 contract MyPostPaymentAction is IPostPaymentAction {
     event DynamicTokenAmountPPAExecuted(address receipt, uint256 receiptId, address receiptToken, uint256 receiptTokenAmount, address payer, address payee, address paymentPrecondition);
     event StaticTokenAmountPPAExecuted(address receipt, uint256 receiptId, address receiptToken, uint256 receiptTokenAmount, address payer, address payee, address paymentPrecondition, address paymentRequestToken, uint256 paymentRequestTokenAmount);
