@@ -13,9 +13,9 @@ from hypothesis import example
 from web3.constants import ADDRESS_ZERO
 
 from scripts.utils.contract import ContractBuilder
-from scripts.utils.environment import is_local_blockchain_environment
 from tests.asserters import assert_expected_events_occurred_for_successful_transaction, \
     assert_dynamic_token_amount_event_is_correct, assert_static_token_amount_event_is_correct
+
 
 @pytest.fixture(scope="module", autouse=True)
 def shared_setup(module_isolation):
@@ -85,6 +85,7 @@ def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_
         receipt_token_amount=price_in_tokens,
         payer=payee_from_account.address,
         payee=deployer.address,
+        beneficiary=deployer.address,
         payment_precondition_addr=ADDRESS_ZERO,
         payment_request_token_addr=erc_20_first,
         payment_request_token_price=price_in_tokens,
@@ -173,6 +174,7 @@ def test_GIVEN_dynamic_prices_and_post_payment_action_WHEN_payment_is_succesfull
         receipt_token_amount=price_in_tokens,
         payer=payee_from_account.address,
         payee=deployer.address,
+        beneficiary=deployer.address,
         payment_precondition_addr=ADDRESS_ZERO,
     )
 
