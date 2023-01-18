@@ -11,6 +11,7 @@ struct ReceiptData {
         uint256 tokenAmount;
         address payer;
         address payee;
+        address beneficiary;
 }
 
 struct OptionalReceiptDataLocation {
@@ -41,9 +42,22 @@ contract Receipt is ERC721Enumerable, Ownable {
 
     constructor(string memory name, string memory symbol) ERC721(name, symbol) {}
 
+    // Receipt creators without data
     function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee) public virtual onlyOwner returns (uint256) {
+        return createFor(
+        {
+            paymentRequestId: paymentRequestId,
+            token: token,
+            tokenAmount: tokenAmount,
+            payer: payer,
+            payee: payee,
+            beneficiary: payer
+        }
+    );
+    }
+    function createFor(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address beneficiary) public virtual onlyOwner returns (uint256) {
         uint256 receiptId = _tokenId.current();
-        _mint(payer, receiptId);
+        _mint(beneficiary, receiptId);
         _tokenId.increment();
 
         receiptData[receiptId] = ReceiptData(
@@ -53,7 +67,8 @@ contract Receipt is ERC721Enumerable, Ownable {
                 token: token,
                 tokenAmount: tokenAmount,
                 payer: payer, // Address that performed the payment, i.e. called pay() on the PaymentRequest instance
-                payee: payee
+                payee: payee,
+                beneficiary: beneficiary
             }
         );
         receiptIdsPaidByAddr[payer].push(receiptId);
@@ -63,8 +78,18 @@ contract Receipt is ERC721Enumerable, Ownable {
 
     }
 
-    function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
-       uint256 receiptId = create(paymentRequestId, token, tokenAmount, payer, payee);
+    // Receipt creators with Data
+    function createFor(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address beneficiary, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
+       uint256 receiptId = createFor(
+        {
+            paymentRequestId: paymentRequestId,
+            token: token,
+            tokenAmount: tokenAmount,
+            payer: payer,
+            payee: payee,
+            beneficiary: beneficiary
+        }
+        );
         
         optionalReceiptDataLocation[receiptId] = OptionalReceiptDataLocation(
             {
@@ -76,6 +101,21 @@ contract Receipt is ERC721Enumerable, Ownable {
         );
 
         return receiptId;
+    }
+
+    function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
+        return createFor(
+        {
+            paymentRequestId: paymentRequestId,
+            token: token,
+            tokenAmount: tokenAmount,
+            payer: payer,
+            payee: payee,
+            beneficiary: payee,
+            data: data,
+            dataId: dataId
+        }
+    );
     }
 
     function balanceOfForPaymentRequestId(uint256 paymentRequestId, address owner) public view virtual returns (uint256) {
