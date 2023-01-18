@@ -8,9 +8,9 @@ import "contracts/PaymentRequest.sol";
 /// the paymentRequestId in question.
 contract OnePurchasePerAddressPaymentPrecondition is IPaymentPrecondition {
 
-    function isPaymentAllowed(uint256 paymentRequestId, address payer, address token) external override returns(bool) {
+    function isPaymentAllowed(uint256 paymentRequestId, address token, address payer, address beneficiary) external override returns(bool) {
         PaymentRequest paymentRequest = PaymentRequest(msg.sender);
         Receipt receipt = paymentRequest.receipt();
-        
+
     }
 }

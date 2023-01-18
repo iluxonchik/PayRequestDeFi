@@ -14,7 +14,7 @@ contract NFTOwnerPaymentPrecondition is IPaymentPrecondition {
         requiredERC721 = _requiredERC721;
     }
 
-    function isPaymentAllowed(uint256 paymentRequestId, address payer, address token) external override returns(bool) {
+    function isPaymentAllowed(uint256 paymentRequestId, address token, address payer, address beneficiary) external override returns(bool) {
         address erc721;
         if (token == exclusivePaymentToken) {
             erc721 = requiredERC721;
