@@ -1,6 +1,8 @@
 import functools
 from enum import Enum
 
+StaticTokenAmounts = list[list[str, int]]
+
 
 class MinMaxEnum(Enum):
     @classmethod
