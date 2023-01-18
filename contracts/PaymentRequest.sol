@@ -32,15 +32,17 @@ contract PaymentRequest is ERC721Enumerable {
 
     event PaymentPreconditionPassed(
         uint256 indexed paymentRequestId,
+        address token,
         address payer,
-        address token
+        address beneficiary
     );
 
     event TokenAmountObtained(
         uint256 indexed PaymentRequestId,
-        address payer,
         address token,
         uint256 amount,
+        address payer,
+        address beneficiary,
         bool isStatic
     );
 
@@ -53,10 +55,11 @@ contract PaymentRequest is ERC721Enumerable {
     event PaymentRequestPaid(
         uint256 indexed paymentRequestId,
         uint256 receiptId,
+        address token,
+        uint256 amuont,
         address payer,
         address payee,
-        address token,
-        uint256 amuont
+        address beneficiary
     );
 
     
@@ -154,26 +157,23 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenAmount.tokenAmount;
     }
 
-    function isDynamicTokenAccepted(uint256 paymentRequestId, address token) public returns (bool) {
+    function isDynamicTokenAccepted(uint256 paymentRequestId, address token, address beneficiary) public returns (bool) {
         require(isTokenAmountDynamic(paymentRequestId), "Amount of the provided PaymentRequest ID is not dynamic.");
         address dynamicTokenAmountAddr = tokenIdToDynamicTokenAmount[paymentRequestId];
         IDynamicTokenAmount dynamicTokenAmount = IDynamicTokenAmount(dynamicTokenAmountAddr);
         return dynamicTokenAmount.isTokenAccepted(
-                paymentRequestId,
-                token,
-                msg.sender
-            );
+            {
+                paymentRequestId: paymentRequestId,
+                token: token,
+                payer: msg.sender,
+                beneficiary: beneficiary
+            });
     }
 
     function isStaticTokenAccepted(uint256 paymentRequestId, address token) public view returns (bool) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
         TokenAmountMappingValue memory tokenAmount = tokenIdToAmountMap[paymentRequestId][token];
         return tokenAmount.isSet;
-    }
-
-    function isTokenAccepted(uint256 paymentRequestId, address token, address payer) public returns(uint256) {
-        // TODO: allow checks for custom, non-msg.sender payer.
-        return 0;
     }
 
     function getPostPaymentAction(uint256 paymentRequestId) public view returns (address) {
@@ -193,15 +193,25 @@ contract PaymentRequest is ERC721Enumerable {
     /// contract to query for the dynamic price of a token. Since its logic is arbitrary, other methods may be
     /// infeasible to implement. An example of that would be an IDynamicTokenAmountInfo that accepts any token converted
     /// to a stablecoin such as USDT. Operations like listing all of the accepted token IDs becomes impractical
-    function getDynamicAmountForToken(uint256 paymentRequestId, address token) public returns (uint256) {
+    function getDynamicAmountForToken(uint256 paymentRequestId, address token, address beneficiary) public returns (uint256) {
         require(isTokenAmountDynamic(paymentRequestId), "Amount of the provided PaymentRequest ID is not dynamic.");
         address dynamicTokenAmountAddr = tokenIdToDynamicTokenAmount[paymentRequestId];
         IDynamicTokenAmount dynamicTokenAmount = IDynamicTokenAmount(dynamicTokenAmountAddr);
         return dynamicTokenAmount.getAmountForToken(
                 paymentRequestId,
                 token,
-                msg.sender
+                msg.sender,
+                beneficiary
             );
+    }
+    function getDynamicAmountForToken(uint256 paymentRequestId, address token) public returns (uint256) {
+        return getDynamicAmountForToken(
+            {
+                paymentRequestId: paymentRequestId,
+                token: token,
+                beneficiary: msg.sender
+            }
+        );
     }
 
         /* == BEGIN auxiliary procedures for creating the PaymentReqeust == */
@@ -253,31 +263,45 @@ contract PaymentRequest is ERC721Enumerable {
 
     /* == BEGIN auxiliary functions for performing a payment == */
 
-    /// @notice Retuns the TokenAmountMappingValue for a given bill and token pair. Practically, this allows
+    /// @notice Returns the TokenAmountMappingValue for a given bill and token pair. Practically, this allows
     /// you to obtain price in tokens for a given contract address, or identify that the provided bill ID
     /// does not accept payments in the provided token ID. You should always check the isSet variable of the
-    /// reutned struct: if it false, the payments in the provided token are not defined.
+    /// returned struct: if it false, the payments in the provided token are not defined.
     /// Both parts done in a single function to be more gas efficient.
+    function getAmountForToken(
+        uint256 paymentRequestId,
+        address token,
+        address beneficiary
+    ) public returns (uint256) {
+        bool isStatic = isTokenAmountStatic(paymentRequestId);
+        uint256 amount = isStatic ? getStaticAmountForToken(paymentRequestId, token) : getDynamicAmountForToken(paymentRequestId, token, beneficiary);
+        emit TokenAmountObtained(paymentRequestId, token, amount, msg.sender, beneficiary, isStatic);
+        return amount;
+    }
+
     function getAmountForToken(
         uint256 paymentRequestId,
         address token
     ) public returns (uint256) {
-        bool isPaymentStatic = true;
-        uint256 price = isTokenAmountStatic(paymentRequestId) ? getStaticAmountForToken(paymentRequestId, token) : getDynamicAmountForToken(paymentRequestId, token);
-        emit TokenAmountObtained(paymentRequestId, token, msg.sender, price, isPaymentStatic);
-        return price;
+        return getAmountForToken(
+            {
+                paymentRequestId: paymentRequestId,
+                token: token,
+                beneficiary: msg.sender
+            }
+        );
     }
-
-    function isTokenAccepted(uint256 paymentRequestId, address token) public returns (bool) {
-        return isTokenAmountStatic(paymentRequestId) ? isStaticTokenAccepted(paymentRequestId, token) : isDynamicTokenAccepted(paymentRequestId, token);
+    function isTokenAccepted(uint256 paymentRequestId, address token, address beneficiary) public returns (bool) {
+        return isTokenAmountStatic(paymentRequestId) ? isStaticTokenAccepted(paymentRequestId, token) : isDynamicTokenAccepted(paymentRequestId, token, beneficiary);
     }
 
     function _checkPaymentPrecondition(
         uint256 paymentRequestId,
-        address token
+        address token,
+        address beneficiary
     ) internal {
         // Check if pre-conditions for payment are met. For example, perhaps you only want to allow this product
-        // to be purchaseable by addresses who own a particular NFT, or perhaps owners of a particular NFT are allowed
+        // to be purchasable by addresses who own a particular NFT, or perhaps owners of a particular NFT are allowed
         // to pay in a particular token.
         address paymentPreconditionAddr = tokenIdToPaymentPrecondition[
             paymentRequestId
@@ -289,16 +313,19 @@ contract PaymentRequest is ERC721Enumerable {
             bool isPaymentAllowed = paymentPrecondition
                 .isPaymentAllowed(
                     paymentRequestId,
+                    token,
                     msg.sender,
-                    token
+                    beneficiary
                 );
             
             require(isPaymentAllowed, "Payment precondition not met");
                 
             emit PaymentPreconditionPassed(
                 paymentRequestId,
+                token,
                 msg.sender,
-                token);
+                beneficiary
+            );
             
         }
     }
@@ -343,14 +370,18 @@ contract PaymentRequest is ERC721Enumerable {
     function _emitReceipt(
         uint256 paymentRequestId,
         address token,
-        uint256 tokenAmount
+        uint256 tokenAmount,
+        address beneficiary
     ) internal returns (uint256) {
-        return receipt.create(
-                paymentRequestId,
-                token,
-                tokenAmount,
-                msg.sender,
-                ownerOf(paymentRequestId)
+        return receipt.createFor(
+            {
+                paymentRequestId: paymentRequestId,
+                token: token,
+                tokenAmount: tokenAmount,
+                payer: msg.sender,
+                payee: ownerOf(paymentRequestId),
+                beneficiary: beneficiary
+            }
             );
     }
 
@@ -494,16 +525,17 @@ contract PaymentRequest is ERC721Enumerable {
         return 0;
     }
 
-    function pay(uint256 paymentRequestId, address token)
-        external
+    function payFor(uint256 paymentRequestId, address token, address beneficiary)
+        public
         paymentRequestIsEnabled(paymentRequestId)
         returns (uint256)
     {
-        _checkPaymentPrecondition(paymentRequestId, token);
+        _checkPaymentPrecondition(paymentRequestId, token, beneficiary);
 
         uint256 tokenAmount = getAmountForToken(
             paymentRequestId,
-            token
+            token,
+            beneficiary
         );
 
         _performTokenTransfer(
@@ -515,13 +547,28 @@ contract PaymentRequest is ERC721Enumerable {
 
         // PaymentReqeust has been successfully paid, emit receipt
         uint256 receiptId = _emitReceipt(
-            paymentRequestId,
-            token,
-            tokenAmount
+            {
+                paymentRequestId: paymentRequestId,
+                token: token,
+                tokenAmount: tokenAmount,
+                beneficiary: beneficiary
+            }
         );
         _executePostPaymentAction(paymentRequestId, receiptId);
 
-        emit PaymentRequestPaid(paymentRequestId, receiptId, msg.sender, ownerOf(paymentRequestId), token, tokenAmount);
+        emit PaymentRequestPaid(paymentRequestId, receiptId, token, tokenAmount, msg.sender, ownerOf(paymentRequestId), beneficiary);
         return receiptId;
+    }
+
+    function pay(uint256 paymentRequestId, address token)
+        external
+        returns (uint256)
+    {
+        return payFor(
+            {
+                paymentRequestId: paymentRequestId,
+                token: token,
+                beneficiary: msg.sender
+            });
     }
 }
