@@ -1,12 +1,14 @@
 import random
 from typing import cast, Optional
 
-from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721, FixedDynamicTokenAmount, MyPostPaymentAction, SharedReceipt
+from brownie import PaymentRequest, Receipt, MyERC20, NFTOwnerPaymentPrecondition, MyERC721, FixedDynamicTokenAmount, MyPostPaymentAction, SharedReceipt, OnePurchasePerAddressPaymentPrecondition, DiscountedTokenAmountForFirst100Customers, DisablePaymentRequestPaymentPostAction, TransferNFTPaymentPostAction
 from brownie.network.account import Account
 from brownie.network.contract import ContractContainer, ProjectContract
+from brownie.network.transaction import TransactionReceipt
 from web3.constants import ADDRESS_ZERO
 
-from scripts.utils.types import NFTOwnerPaymentPreconditionMeta, NFTOwnerPaymentPreconditionWithMeta
+from scripts.utils.types import NFTOwnerPaymentPreconditionMeta, NFTOwnerPaymentPreconditionWithMeta, \
+    TransferNFTPaymentPostActionWithMeta, TransferNFTPaymentPostActionMeta
 
 
 def force_deploy_contract_instance(contract_cls: ContractContainer, account: Account, *deploy_args) -> ProjectContract:
@@ -43,7 +45,7 @@ class ContractBuilder:
 
     @staticmethod
     def get_my_erc20_contract(*, account: Account, force_deploy: bool = False) -> MyERC20:
-        args: tuple = (MyERC20, account, "Jasmine", "JSM", 1999999)
+        args: tuple = (MyERC20, account, "Jasmine", "JSM", 9999999)
         return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
     @staticmethod
@@ -59,6 +61,26 @@ class ContractBuilder:
     @staticmethod
     def get_fixed_token_amount_computer(*, price: int, account: Account, force_deploy: bool = False) -> FixedDynamicTokenAmount:
         args: tuple = (FixedDynamicTokenAmount, account, price)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_one_purchase_per_address_payment_precondition(*, account: Account, force_deploy: bool = False) -> OnePurchasePerAddressPaymentPrecondition:
+        args: tuple = (OnePurchasePerAddressPaymentPrecondition, account)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_discounted_amount_token_price(*, account: Account, force_deploy: bool = False):
+        args: tuple = (DiscountedTokenAmountForFirst100Customers, account)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_disable_payment_request_post_payment_action(*, account: Account, force_deploy: bool = False):
+        args: tuple = (DisablePaymentRequestPaymentPostAction, account)
+        return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
+
+    @staticmethod
+    def get_transfer_nft_post_payment_action(*, erc721_address: str, erc721_id: int, account, force_deploy: bool = False):
+        args: tuple = (TransferNFTPaymentPostAction, account, erc721_address, erc721_id)
         return force_deploy_contract_instance(*args) if force_deploy else get_or_create_deployed_instance(*args)
 
     @staticmethod
@@ -126,3 +148,44 @@ class ContractBuilder:
             account=self._account,
             force_deploy=self._force_deploy,
         )
+
+    @property
+    def OnePurchasePerAddressPaymentPrecondition(self) -> OnePurchasePerAddressPaymentPrecondition:
+        return self.get_one_purchase_per_address_payment_precondition(
+            account=self._account,
+            force_deploy=self._force_deploy,
+        )
+    
+    @property
+    def DiscountedTokenAmountForFirst100Customers(self) -> DiscountedTokenAmountForFirst100Customers:
+        return self.get_discounted_amount_token_price(
+            account=self._account,
+            force_deploy=self._force_deploy,
+        )
+
+    @property
+    def DisablePaymentRequestPaymentPostAction(self) -> DisablePaymentRequestPaymentPostAction:
+        return self.get_disable_payment_request_post_payment_action(
+            account=self._account,
+            force_deploy=self._force_deploy,
+        )
+
+    @property
+    def TransferNFTPaymentPostAction(self) -> TransferNFTPaymentPostActionWithMeta:
+        erc721: MyERC721 = self.MyERC721
+        tx: TransactionReceipt = erc721.create(self.account.address)
+        erc721_id: int = int(tx.return_value)
+
+        post_payment_action: TransferNFTPaymentPostAction = self.get_transfer_nft_post_payment_action(
+            account=self._account,
+            erc721_address=erc721.address,
+            erc721_id=erc721_id,
+            force_deploy=self._force_deploy,
+        )
+
+        post_payment_action.Meta = TransferNFTPaymentPostActionMeta(erc721=erc721, erc721_id=erc721_id)
+        post_payment_action = cast(TransferNFTPaymentPostActionWithMeta, post_payment_action)
+
+        return post_payment_action
+
+

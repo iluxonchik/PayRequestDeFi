@@ -20,8 +20,7 @@ def assert_dynamic_token_amount_event_is_correct(*,
                                                  receipt_token_amount: int,
                                                  payer: str,
                                                  payee: str,
-                                                 beneficiary: str,
-                                                 payment_precondition_addr: str):
+                                                 beneficiary: str):
     if not events:
         pytest.fail("Passed events are None or empty")
 
@@ -34,7 +33,6 @@ def assert_dynamic_token_amount_event_is_correct(*,
         "payer": payer,
         "payee": payee,
         "beneficiary": beneficiary,
-        "paymentPrecondition": payment_precondition_addr,
     }
 def assert_static_token_amount_event_is_correct(*,
                                                 events: Optional[EventDict],
@@ -45,7 +43,6 @@ def assert_static_token_amount_event_is_correct(*,
                                                 payer: str,
                                                 payee: str,
                                                 beneficiary: str,
-                                                payment_precondition_addr: str,
                                                 payment_request_token_addr: str,
                                                 payment_request_token_price: int
                                                 ):
@@ -60,7 +57,6 @@ def assert_static_token_amount_event_is_correct(*,
         "payer": payer,
         "payee": payee,
         "beneficiary": beneficiary,
-        "paymentPrecondition": payment_precondition_addr,
         "paymentRequestToken": payment_request_token_addr,
         "paymentRequestTokenAmount": payment_request_token_price,
     }
