@@ -13,3 +13,13 @@ class NFTOwnerPaymentPreconditionMeta:
 
 class NFTOwnerPaymentPreconditionWithMeta(ProjectContract):
     Meta = NFTOwnerPaymentPreconditionMeta
+
+
+@dataclass
+class TransferNFTPaymentPostActionMeta:
+    erc721: ProjectContract
+    erc721_id: int
+
+
+class TransferNFTPaymentPostActionWithMeta(ProjectContract):
+    Meta = TransferNFTPaymentPostActionMeta

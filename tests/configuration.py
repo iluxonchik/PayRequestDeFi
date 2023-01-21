@@ -6,8 +6,10 @@ from typing import Optional, cast
 
 from brownie.network.account import Accounts, Account
 from brownie.network.contract import ProjectContract
+from brownie.network.transaction import TransactionReceipt
 
 from scripts.utils.contract import ContractBuilder
+from scripts.utils.types import TransferNFTPaymentPostActionWithMeta
 from tests.exceptions import InvalidChoiceException
 from tests.types import MinMaxEnum, StaticTokenAmounts
 
@@ -82,28 +84,34 @@ class PaymentRequestBuilder:
         configuration: PaymentRequestConfiguration,
         accounts: Accounts,
         deployer_account: Account,
+        payment_request_deployer_account: Account,
     ):
         self._configuration: PaymentRequestConfiguration = configuration
         self._accounts: Accounts = accounts
         self._deployer_account: Account = deployer_account
 
+        self._payment_request: ProjectContract = self.contract_builder.get_payment_request_contract(account=payment_request_deployer_account)
+
         self._payment_precondition: Optional[ProjectContract] = None
         self._dynamic_token_amount: Optional[ProjectContract] = None
-        self._static_token_amount: Optional[StaticTokenAmounts] = None
+        self._static_token_amounts: Optional[StaticTokenAmounts] = None
         self._post_payment_action: Optional[ProjectContract] = None
 
     def _setup_required_state(self) -> None:
         self._payment_precondition = self._deploy_payment_precondition_or_none()
-        # TODO: fill below
-        self._dynamic_token_amount: Optional[ProjectContract] = None
-        self._static_token_amount: Optional[StaticTokenAmounts] = None
-        self._post_payment_action: Optional[ProjectContract] = None
+        self._dynamic_token_amount: Optional[ProjectContract] = self._deploy_dynamic_token_amount_or_none()
+        self._static_token_amount: Optional[StaticTokenAmounts] = self._deploy_static_token_amount_or_none()
+        self._post_payment_action: Optional[ProjectContract] = self._deploy_payment_post_action_or_none()
 
     @property
     def contract_builder(self) -> ContractBuilder:
         return ContractBuilder(account=self._deployer_account, force_deploy=True)
 
-    def _deploy_payment_precondition_or_none(self):
+    @property
+    def deployer_account(self) -> Account:
+        return self._deployer_account
+
+    def _deploy_payment_precondition_or_none(self) -> Optional[ProjectContract]:
         if self._configuration.payment_precondition == PaymentPrecondition.NONE:
             return None
 
@@ -114,9 +122,56 @@ class PaymentRequestBuilder:
             self._configuration.payment_precondition
             == PaymentPrecondition.ONE_PURCHASE_PER_ADDRESS
         ):
-            # TODO: implement in contract builder
-            raise NotImplemented()
+            return self.contract_builder.OnePurchasePerAddressPaymentPrecondition
 
         raise InvalidChoiceException(
             f"{self._configuration.payment_precondition=} is not a valid choice."
+        )
+
+    def _deploy_dynamic_token_amount_or_none(self) -> Optional[ProjectContract]:
+        if self._configuration.token_amount == TokenAmount.STATIC:
+            return None
+
+        if self._configuration.token_amount == TokenAmount.FIXED:
+            # use .price() to get the required price
+            return self.contract_builder.FixedPricePaymentComputer
+
+        if self._configuration.token_amount == TokenAmount.DISCOUNTED:
+            return self.contract_builder.DiscountedTokenAmountForFirst100Customers
+
+        raise InvalidChoiceException(
+            f"{self._configuration.token_amount=} is not a valid choice."
+        )
+
+    def _deploy_static_token_amount_or_none(self) -> Optional[StaticTokenAmounts]:
+        if self._configuration.token_amount == TokenAmount.STATIC:
+            static_token_amounts: StaticTokenAmounts = []
+
+            token_amount: int
+            for token_amount in self._configuration.static_token_amounts:
+                erc20: ProjectContract = self.contract_builder.MyERC20
+                static_token_amounts.append([erc20.address, token_amount])
+
+            return static_token_amounts
+
+    def _deploy_payment_post_action_or_none(self) -> Optional[ProjectContract]:
+        if self._configuration.post_payment_action == PostPaymentAction.NONE:
+            return None
+
+        if self._configuration.post_payment_action == PostPaymentAction.EMIT_EVENTS:
+            return self.contract_builder.MyPostPaymentAction
+
+        if self._configuration.post_payment_action == PostPaymentAction.DISABLE_PAYMENT_REQUEST:
+            return self.contract_builder.DisablePaymentRequestPaymentPostAction
+
+        if self._configuration.post_payment_action == PostPaymentAction.TRANSFER_NFT:
+            transfer_nft_contract: TransferNFTPaymentPostActionWithMeta = self.contract_builder.TransferNFTPaymentPostAction
+            erc721: ProjectContract = transfer_nft_contract.Meta.erc721
+            erc721_id: int = transfer_nft_contract.Meta.erc721_id
+
+            erc721.approve(self._payment_request.address, erc721_id, {"from": self.contract_builder.account})
+            return transfer_nft_contract
+
+        raise InvalidChoiceException(
+            f"{self._configuration.post_payment_action=} is not a valid choice."
         )
