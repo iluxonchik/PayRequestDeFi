@@ -6,7 +6,7 @@ import "contracts/Receipt.sol";
 
 contract DiscountedTokenAmountForFirst100Customers is IDynamicTokenAmount {
     uint256 constant public PRICE = 100;
-    uint256 constant public MAX_UNIQUE_PURCHASESS_FOR_DISCOUNT = 100;
+    uint256 constant public MAX_UNIQUE_PURCHASESS_FOR_DISCOUNT = 10;
     uint256 constant public DICOUNT_DIVIDER = 2;
     uint256 public numUniquePurchases = 0;
     mapping(address => bool) internal isPurchaseAccountedForAddr;
@@ -31,6 +31,8 @@ contract DiscountedTokenAmountForFirst100Customers is IDynamicTokenAmount {
             } else {
                 return PRICE;
             }
+        } else {
+            return PRICE;
         }
     }
     function isTokenAccepted(uint256 paymentRequestId, address token, address payer, address beneficiary) public override returns (bool) {
