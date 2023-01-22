@@ -6,7 +6,7 @@ from typing import Optional, cast
 
 from brownie.network.account import Accounts, Account
 from brownie.network.contract import ProjectContract
-from brownie.network.transaction import TransactionReceipt
+from brownie.network.transaction import TransactionReceipt, Status
 
 from scripts.utils.contract import ContractBuilder
 from scripts.utils.types import TransferNFTPaymentPostActionWithMeta
@@ -89,8 +89,9 @@ class PaymentRequestBuilder:
         self._configuration: PaymentRequestConfiguration = configuration
         self._accounts: Accounts = accounts
         self._deployer_account: Account = deployer_account
+        self._payment_request_deployer_account: Account = payment_request_deployer_account
 
-        self._payment_request: ProjectContract = self.contract_builder.get_payment_request_contract(account=payment_request_deployer_account)
+        self._payment_request: ProjectContract = self.contract_builder.get_payment_request_contract(account=self._payment_request_deployer_account)
 
         self._payment_precondition: Optional[ProjectContract] = None
         self._dynamic_token_amount: Optional[ProjectContract] = None
@@ -100,7 +101,7 @@ class PaymentRequestBuilder:
     def _setup_required_state(self) -> None:
         self._payment_precondition = self._deploy_payment_precondition_or_none()
         self._dynamic_token_amount: Optional[ProjectContract] = self._deploy_dynamic_token_amount_or_none()
-        self._static_token_amount: Optional[StaticTokenAmounts] = self._deploy_static_token_amount_or_none()
+        self._static_token_amounts: Optional[StaticTokenAmounts] = self._deploy_static_token_amount_or_none()
         self._post_payment_action: Optional[ProjectContract] = self._deploy_payment_post_action_or_none()
 
     @property
@@ -110,6 +111,32 @@ class PaymentRequestBuilder:
     @property
     def deployer_account(self) -> Account:
         return self._deployer_account
+
+    @property
+    def payment_request(self) -> ProjectContract:
+        return self._payment_request
+
+    @property
+    def payment_precondition(self) -> Optional[ProjectContract]:
+        return self._payment_precondition
+    @property
+    def dynamic_token_amount(self) -> Optional[ProjectContract]:
+        return self._dynamic_token_amount
+
+    @property
+    def static_token_amounts(self) -> Optional[StaticTokenAmounts]:
+        return self._static_token_amounts
+
+    @property
+    def post_payment_action(self) -> Optional[ProjectContract]:
+        return self._post_payment_action
+    @property
+    def is_token_amount_static(self) -> bool:
+        return self._configuration.token_amount == TokenAmount.STATIC
+
+    @property
+    def payment_request_deployer_account(self) -> Account:
+        return self._payment_request_deployer_account
 
     def _deploy_payment_precondition_or_none(self) -> Optional[ProjectContract]:
         if self._configuration.payment_precondition == PaymentPrecondition.NONE:
@@ -129,7 +156,7 @@ class PaymentRequestBuilder:
         )
 
     def _deploy_dynamic_token_amount_or_none(self) -> Optional[ProjectContract]:
-        if self._configuration.token_amount == TokenAmount.STATIC:
+        if self.is_token_amount_static:
             return None
 
         if self._configuration.token_amount == TokenAmount.FIXED:
@@ -144,7 +171,7 @@ class PaymentRequestBuilder:
         )
 
     def _deploy_static_token_amount_or_none(self) -> Optional[StaticTokenAmounts]:
-        if self._configuration.token_amount == TokenAmount.STATIC:
+        if self.is_token_amount_static:
             static_token_amounts: StaticTokenAmounts = []
 
             token_amount: int
@@ -175,3 +202,76 @@ class PaymentRequestBuilder:
         raise InvalidChoiceException(
             f"{self._configuration.post_payment_action=} is not a valid choice."
         )
+class PaymentRequestTestProxy:
+    def __init__(self, *, configuration: PaymentRequestBuilder, creator_account: Account):
+        self._configuration: PaymentRequestBuilder = configuration
+        self._creator_account: Account = creator_account
+    def create_payment_request_for(self, *, for_account: Account, perform_assertions: bool = True):
+        raise NotImplementedError()
+    def create_payment_request(self) -> int:
+        # Decide whether to use createWithStaticTokenAmount() or createDynamicTokenAmount()
+        tx: TransactionReceipt = self._configuration.payment_request.createWithStaticTokenAmount(
+                self._configuration.static_token_amounts,
+                self._configuration.payment_precondition,
+                self._configuration.post_payment_action,
+                {"from": self._creator_account}
+            ) if self._configuration.is_token_amount_static else self._configuration.payment_request.createWithDynamicTokenAmount(
+                self._configuration.dynamic_token_amount,
+                self._configuration.payment_precondition,
+                self._configuration.post_payment_action,
+                {"from": self._creator_account}
+            )
+
+        assert tx.status == Status.Confirmed
+
+        payment_request_id: int = int(tx.return_value)
+
+        assert self._configuration.payment_request.ownerOf(payment_request_id) == self._creator_account.address
+        assert self._configuration.payment_request.isEnabled(payment_request_id) == True
+
+        # TODO: assert receipt has no entries for this ID, assert dynamic part addresses are correct
+        return payment_request_id
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
