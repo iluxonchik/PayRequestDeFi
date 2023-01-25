@@ -6,3 +6,6 @@ class PayRequestDeFiTestException(Exception):
 
 class InvalidChoiceException(PayRequestDeFiTestException):
     pass
+
+class InvalidTestStateException(PayRequestDeFiTestException):
+    pass
