@@ -216,8 +216,8 @@ def test_GIVEN_sample_nft_payment_precondition_WHEN_not_nft_owner_payment_creato
     payment_request: PaymentRequest = deployer_contract_builder.PaymentRequest
     tx: TransactionReceipt = payment_request.createWithStaticTokenAmount(
         [
-            [non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT],
-            [exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT],
+            (non_exclusive_token.address, NON_EXCLUSIVE_TOKEN_AMOUNT),
+            (exclusive_token.address, EXCLUSIVE_TOKEN_AMOUNT),
         ],
         precondition.address,
         ADDRESS_ZERO,
