@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import auto
 from typing import Optional, cast
 
-from brownie import ERC20
+from brownie import MyERC20
 
 from brownie.network.account import Accounts, Account
 from brownie.network.contract import ProjectContract
@@ -94,12 +94,12 @@ class PaymentRequestBuilder:
         self,
         configuration: PaymentRequestConfiguration,
         accounts: Accounts,
-        deployer_account: Account,
+        payment_request_dependencies_deployer_account: Account,
         payment_request_deployer_account: Account,
     ):
         self._payment_request_configuration: PaymentRequestConfiguration = configuration
         self._accounts: Accounts = accounts
-        self._deployer_account: Account = deployer_account
+        self._payment_request_dependencies_deployer_account: Account = payment_request_dependencies_deployer_account
         self._payment_request_deployer_account: Account = (
             payment_request_deployer_account
         )
@@ -116,6 +116,8 @@ class PaymentRequestBuilder:
         self._static_token_amounts: Optional[StaticTokenAmounts] = None
         self._post_payment_action: Optional[ProjectContract] = None
 
+        self._setup_required_state()
+
     def _setup_required_state(self) -> None:
         self._payment_precondition = self._deploy_payment_precondition_or_none()
         self._dynamic_token_amount: Optional[
@@ -131,11 +133,15 @@ class PaymentRequestBuilder:
 
     @property
     def contract_builder(self) -> ContractBuilder:
-        return ContractBuilder(account=self._deployer_account, force_deploy=True)
+        return ContractBuilder(account=self._payment_request_dependencies_deployer_account, force_deploy=True)
 
     @property
-    def deployer_account(self) -> Account:
-        return self._deployer_account
+    def payment_request_dependencies_deployer_account(self) -> Account:
+        return self._payment_request_dependencies_deployer_account
+
+    @property
+    def accounts(self) -> Accounts:
+        return self._accounts
 
     @property
     def payment_request(self) -> ProjectContract:
@@ -174,7 +180,7 @@ class PaymentRequestBuilder:
         return self._payment_request_deployer_account
 
     def transfer_erc20_to_address(self, *, erc20: ProjectContract, to: Account, amount: int):
-        erc20.transfer(to.address, amount, {"from": self._deployer_account})
+        erc20.transfer(to.address, amount, {"from": self._payment_request_dependencies_deployer_account})
 
     def approve_tokens_for_payment_request(self, *, erc20: ProjectContract, from_account: Account, amount: int):
         erc20.approve(self.payment_request.address, amount, {"from": from_account})
@@ -321,7 +327,7 @@ class PaymentRequestTestProxy:
                 return PaymentToken(
                     address=selected_payment_token[0],
                     amount=selected_payment_token[1],
-                    contract=ERC20.from_abi("ERC20", selected_payment_token[0], ERC20.abi),
+                    contract=MyERC20.from_abi("MyERC20", selected_payment_token[0], MyERC20.abi),
                 )
             else:
                 raise InvalidTestStateException(
@@ -379,6 +385,7 @@ class PaymentRequestTestProxy:
         tx: TransactionReceipt = payment_request.pay(
             payment_request_id,
             payment_token.address,
+            {"from": payer}
         )
         assert tx.status == Status.Confirmed
         receipt_id: int = int(tx.return_value)
