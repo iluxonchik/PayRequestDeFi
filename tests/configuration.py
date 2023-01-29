@@ -4,10 +4,10 @@ Structures used for test run configuration. This code is used to configure test 
 import random
 from dataclasses import dataclass
 from enum import auto
-from typing import Optional, cast
+from typing import Optional, cast, Union
 
-from brownie import MyERC20
-
+from brownie import MyERC20, ZERO_ADDRESS
+from brownie.network import accounts
 from brownie.network.account import Accounts, Account
 from brownie.network.contract import ProjectContract
 from brownie.network.transaction import TransactionReceipt, Status
@@ -93,16 +93,13 @@ class PaymentRequestBuilder:
     def __init__(
         self,
         configuration: PaymentRequestConfiguration,
-        accounts: Accounts,
-        payment_request_dependencies_deployer_account: Account,
-        payment_request_deployer_account: Account,
+        payment_request_dependencies_deployer_account_index: int,
+        payment_request_deployer_account_index: int,
     ):
         self._payment_request_configuration: PaymentRequestConfiguration = configuration
-        self._accounts: Accounts = accounts
-        self._payment_request_dependencies_deployer_account: Account = payment_request_dependencies_deployer_account
-        self._payment_request_deployer_account: Account = (
-            payment_request_deployer_account
-        )
+        self._accounts: Accounts = accounts  # if needed, can be later done via a constructor arg
+        self._payment_request_dependencies_deployer_account: Account = self._accounts[payment_request_dependencies_deployer_account_index]
+        self._payment_request_deployer_account: Account = self._accounts[payment_request_deployer_account_index]
 
         self._payment_request: ProjectContract = (
             self.contract_builder.get_payment_request_contract(
@@ -119,17 +116,17 @@ class PaymentRequestBuilder:
         self._setup_required_state()
 
     def _setup_required_state(self) -> None:
-        self._payment_precondition = self._deploy_payment_precondition_or_none()
+        self._payment_precondition = self._deploy_payment_precondition_or_zero_address()
         self._dynamic_token_amount: Optional[
             ProjectContract
-        ] = self._deploy_dynamic_token_amount_or_none()
+        ] = self._deploy_dynamic_token_amount_or_zero_address()
         self._tokens_for_dynamic_token_amount_payment: Optional[list[ProjectContract]] = self._get_tokens_for_dynamic_token_amount_payment_or_none()
         self._static_token_amounts: Optional[
             StaticTokenAmounts
         ] = self._deploy_static_token_amount_or_none()
         self._post_payment_action: Optional[
             ProjectContract
-        ] = self._deploy_payment_post_action_or_none()
+        ] = self._deploy_payment_post_action_or_zero_address()
 
     @property
     def contract_builder(self) -> ContractBuilder:
@@ -185,9 +182,9 @@ class PaymentRequestBuilder:
     def approve_tokens_for_payment_request(self, *, erc20: ProjectContract, from_account: Account, amount: int):
         erc20.approve(self.payment_request.address, amount, {"from": from_account})
 
-    def _deploy_payment_precondition_or_none(self) -> Optional[ProjectContract]:
+    def _deploy_payment_precondition_or_zero_address(self) -> Union[ProjectContract, str]:
         if self._payment_request_configuration.payment_precondition == PaymentPrecondition.NONE:
-            return None
+            return ZERO_ADDRESS
 
         if self._payment_request_configuration.payment_precondition == PaymentPrecondition.NFT_OWNER:
             return self.contract_builder.NFTOwnerPaymentPrecondition
@@ -202,9 +199,9 @@ class PaymentRequestBuilder:
             f"{self._payment_request_configuration.payment_precondition=} is not a valid choice."
         )
 
-    def _deploy_dynamic_token_amount_or_none(self) -> Optional[ProjectContract]:
+    def _deploy_dynamic_token_amount_or_zero_address(self) -> Union[ProjectContract, str]:
         if self.is_token_amount_static:
-            return None
+            return ZERO_ADDRESS
 
         if self._payment_request_configuration.token_amount == TokenAmount.FIXED:
             # use .price() to get the required price
@@ -237,9 +234,9 @@ class PaymentRequestBuilder:
                 self.contract_builder.MyERC20 for _ in range(3)
             ]
 
-    def _deploy_payment_post_action_or_none(self) -> Optional[ProjectContract]:
+    def _deploy_payment_post_action_or_zero_address(self) -> Union[ProjectContract, str]:
         if self._payment_request_configuration.post_payment_action == PostPaymentAction.NONE:
-            return None
+            return ZERO_ADDRESS
 
         if self._payment_request_configuration.post_payment_action == PostPaymentAction.EMIT_EVENTS:
             return self.contract_builder.MyPostPaymentAction
@@ -272,16 +269,16 @@ class PaymentRequestBuilder:
 class PaymentRequestTestProxy:
     """
     Proxy for interacting with a Payment Request. This class is to be used by a test runner, that actually
-    decides on the tests that shold be run.
+    decides on the tests that should be run.
     """
 
     def __init__(
         self, *,
         payment_request_builder: PaymentRequestBuilder,
-        creator_account: Account,
+        creator_account_index: int,
     ):
         self._payment_request_builder: PaymentRequestBuilder = payment_request_builder
-        self._creator_account: Account = creator_account
+        self._creator_account: Account = accounts[creator_account_index]
 
     def create_payment_request_for(
         self, *, for_account: Account, perform_assertions: bool = True
@@ -327,7 +324,7 @@ class PaymentRequestTestProxy:
                 return PaymentToken(
                     address=selected_payment_token[0],
                     amount=selected_payment_token[1],
-                    contract=MyERC20.from_abi("MyERC20", selected_payment_token[0], MyERC20.abi),
+                    contract=MyERC20.at(selected_payment_token[0]),
                 )
             else:
                 raise InvalidTestStateException(
@@ -341,8 +338,7 @@ class PaymentRequestTestProxy:
             tx: TransactionReceipt = self._payment_request_builder.payment_request.getAmountForToken(
                 payment_request_id,
                 selected_token_for_payment.address,
-                payer.address,
-                payer.address,
+                payer.address,  # beneficiary
             )
             assert tx.status == Status.Confirmed
             token_amount: int = int(tx.return_value)

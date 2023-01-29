@@ -11,47 +11,23 @@ from tests.configuration import (
     PaymentRequestTestProxy,
 )
 from tests.integration.accounts import (
-    deployer_or_creator_accounts,
-    integration_test_accounts, interactor_accounts, DEPLOYER_ACCOUNTS_START_INDEX, DEPLOYER_ACCOUNTS_END_INDEX,
-    INTERACTOR_ACCOUNTS_START_INDEX, INTERACTOR_ACCOUNTS_END_INDEX,
+    DEPLOYER_ACCOUNT_INDEX_START,
+    DEPLOYER_ACCOUNT_INDEX_END,
 )
 
 MAX_TOKEN_AMOUNT_VALUE: int = 100
 MAX_NUM_STATIC_TOKENS: int = 11
 
-
-@composite
-def integration_test_deployer_and_creator_account(
-    draw,
-    account_index: SearchStrategy[int] = strategies.integers(
-        min_value=DEPLOYER_ACCOUNTS_START_INDEX,
-        max_value=DEPLOYER_ACCOUNTS_END_INDEX,  # no point in having more than 3 accounts
-    ),
-) -> SearchStrategy[_PrivateKeyAccount]:
-    return strategies.just(deployer_or_creator_accounts[draw(account_index)])
-
-@composite
-def integration_test_interactor_account(
-    draw,
-    account_index: SearchStrategy[int] = strategies.integers(
-        min_value=INTERACTOR_ACCOUNTS_START_INDEX,
-        max_value=INTERACTOR_ACCOUNTS_END_INDEX,
-    ),
-) -> SearchStrategy[_PrivateKeyAccount]:
-    return strategies.just(interactor_accounts[draw(account_index)])
-
-
 def payment_request_test_proxy_strategy(
-    integration_accounts: Accounts = strategies.just(integration_test_accounts),
-    payment_request_deployer_account: SearchStrategy[
-        Account
-    ] = integration_test_deployer_and_creator_account(),
-    payment_request_dependencies_deployer_account: SearchStrategy[
-        Account
-    ] = integration_test_deployer_and_creator_account(),
-    payment_request_creator_account: SearchStrategy[
-        Account
-    ] = integration_test_deployer_and_creator_account(),
+    payment_request_deployer_account_index: SearchStrategy[
+        int
+    ] = strategies.integers(min_value=DEPLOYER_ACCOUNT_INDEX_START, max_value=DEPLOYER_ACCOUNT_INDEX_END),
+    payment_request_dependencies_deployer_account_index: SearchStrategy[
+        int
+    ] = strategies.integers(min_value=DEPLOYER_ACCOUNT_INDEX_START, max_value=DEPLOYER_ACCOUNT_INDEX_END),
+    payment_request_creator_account_index: SearchStrategy[
+        int
+    ] = strategies.integers(min_value=DEPLOYER_ACCOUNT_INDEX_START, max_value=DEPLOYER_ACCOUNT_INDEX_END),
     precondition_id: SearchStrategy[int] = strategies.integers(
         min_value=PaymentPrecondition.min_value(),
         max_value=PaymentPrecondition.max_value(),
@@ -81,13 +57,12 @@ def payment_request_test_proxy_strategy(
     payment_request_builder: SearchStrategy[PaymentRequestBuilder] = strategies.builds(
         PaymentRequestBuilder,
         configuration=payment_request_configuration,
-        accounts=strategies.just(integration_accounts),
-        payment_request_deployer_account=payment_request_deployer_account,
-        payment_request_dependencies_deployer_account=payment_request_dependencies_deployer_account,
+        payment_request_deployer_account_index=payment_request_deployer_account_index,
+        payment_request_dependencies_deployer_account_index=payment_request_dependencies_deployer_account_index,
     )
 
     return strategies.builds(
         PaymentRequestTestProxy,
         payment_request_builder=payment_request_builder,
-        creator_account=payment_request_creator_account,
+        creator_account_index=payment_request_creator_account_index,
     )
