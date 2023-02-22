@@ -130,7 +130,7 @@ contract PaymentRequest is ERC721Enumerable {
         return tokenIdToAcceptedStaticTokens[paymentRequestId][index];
     }
 
-    // Static TokenAmountInfo Gettrs
+    // Static TokenAmountInfo Getetrs
     function getStaticTokenAmountInfos(uint256 paymentRequestId) public view returns (TokenAmountInfo[] memory) {
         require(isTokenAmountStatic(paymentRequestId), "Amount of the provided PaymentRequest ID is not static.");
         return tokenIdToAmountArray[paymentRequestId];
@@ -340,7 +340,8 @@ contract PaymentRequest is ERC721Enumerable {
 
         /*
             Here is how the payment is performced:
-            1. (Externally), the user approves a transfer the amount of tokens for this contract
+            1. (Externally), the user approves a transfer the amount of tokens for this contract-
+                Note: recommended to use increaseAllowance()
             2. move tokens from buyer to this contract
             3. move tokens from this contract to seller
         */

@@ -58,6 +58,7 @@ def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_
     if use_separate_account_for_pay:
         erc_20_second.transfer(payee.address, price_in_tokens, {"from": deployer})
 
+    # TODO: replace all .approve() with increaseAllowance()
     erc_20_second.approve(
         payment_request.address, price_in_tokens, {"from": payee_from_account}
     )
