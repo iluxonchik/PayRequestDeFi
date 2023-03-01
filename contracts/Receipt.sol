@@ -11,7 +11,6 @@ struct ReceiptData {
         uint256 tokenAmount;
         address payer;
         address payee;
-        address beneficiary;
 }
 
 struct OptionalReceiptDataLocation {
@@ -38,26 +37,14 @@ contract Receipt is ERC721Enumerable, Ownable {
     mapping(uint256 => mapping(address => mapping(uint256 => uint256))) internal _ownedTokensForPaymentRequestId;
     mapping(uint256 => mapping(uint256 => uint256)) internal _ownedTokensIndexForPaymentRequestId;
     mapping(uint256 => uint256[]) internal _allTokensForPaymentRequestId;
-    mapping(uint256 => mapping(uint256 => uint256)) _allTokensIndexForPaymentRequestId;
+    mapping(uint256 => mapping(uint256 => uint256)) internal _allTokensIndexForPaymentRequestId;
 
     constructor(string memory name, string memory symbol) ERC721(name, symbol) {}
 
     // Receipt creators without data
     function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee) public virtual onlyOwner returns (uint256) {
-        return createFor(
-        {
-            paymentRequestId: paymentRequestId,
-            token: token,
-            tokenAmount: tokenAmount,
-            payer: payer,
-            payee: payee,
-            beneficiary: payer
-        }
-    );
-    }
-    function createFor(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address beneficiary) public virtual onlyOwner returns (uint256) {
         uint256 receiptId = _tokenId.current();
-        _mint(beneficiary, receiptId);
+        _mint(payer, receiptId);
         _tokenId.increment();
 
         receiptData[receiptId] = ReceiptData(
@@ -67,27 +54,24 @@ contract Receipt is ERC721Enumerable, Ownable {
                 token: token,
                 tokenAmount: tokenAmount,
                 payer: payer, // Address that performed the payment, i.e. called pay() on the PaymentRequest instance
-                payee: payee,
-                beneficiary: beneficiary
+                payee: payee
             }
         );
         receiptIdsPaidByAddr[payer].push(receiptId);
         receiptIdsPaidByAddrForPaymentRequestId[paymentRequestId][payer].push(receiptId);
         
         return receiptId;
-
     }
 
     // Receipt creators with Data
-    function createFor(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address beneficiary, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
-       uint256 receiptId = createFor(
+    function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
+       uint256 receiptId = create(
         {
             paymentRequestId: paymentRequestId,
             token: token,
             tokenAmount: tokenAmount,
             payer: payer,
-            payee: payee,
-            beneficiary: beneficiary
+            payee: payee
         }
         );
         
@@ -101,21 +85,6 @@ contract Receipt is ERC721Enumerable, Ownable {
         );
 
         return receiptId;
-    }
-
-    function create(uint256 paymentRequestId, address token, uint256 tokenAmount, address payer, address payee, address data, uint256 dataId) public virtual onlyOwner returns (uint256) {
-        return createFor(
-        {
-            paymentRequestId: paymentRequestId,
-            token: token,
-            tokenAmount: tokenAmount,
-            payer: payer,
-            payee: payee,
-            beneficiary: payee,
-            data: data,
-            dataId: dataId
-        }
-    );
     }
 
     function balanceOfForPaymentRequestId(uint256 paymentRequestId, address owner) public view virtual returns (uint256) {
@@ -259,7 +228,4 @@ contract Receipt is ERC721Enumerable, Ownable {
         require(index < totalSupplyForPaymentRequestId(paymentRequestId), "Receipt: global index out of bounds");
         return _allTokensForPaymentRequestId[paymentRequestId][index];
     }
-
-
-
 }
