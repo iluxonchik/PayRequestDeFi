@@ -97,6 +97,7 @@ contract PaymentRequest is ERC721Enumerable {
     // If set, the Payment Request is a request for payment for a specific address, i.e. the payment is requested
     // from a specific address.
     mapping(uint256 => address) internal tokenIdToFrom;
+    mapping(address => uint256[]) internal tokenIdsRequestedFrom;
 
     constructor(
         string memory name,
@@ -208,7 +209,27 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     // PaymentRequest From Getters
+    function isRestricted(uint256 paymentRequestId) public view returns (bool) {
+        return tokenIdToFrom[paymentRequestId] != address(0);
+    }
 
+    function getRestrictedAddress(uint256 paymentRequestId) public view returns (address) {
+        return tokenIdToFrom[paymentRequestId];
+    }
+
+    function getNumPaymentRequestsRequestedFrom(address from) public view returns (uint256) {
+        return tokenIdsRequestedFrom[from].length;
+    }
+
+    function getPaymentRequestRequestedFromAtIndex(address from, uint256 index) public view returns     (uint256) {
+        return tokenIdsRequestedFrom[from][index];
+    }
+
+    function getPaymentRequestIdsRequestedFrom(address from) public view returns (uint256[] memory) {
+        return tokenIdsRequestedFrom[from];
+    }
+    
+ 
     /// @notice Get the price when a dynamic pricing scheme is in use. This is the only method available in this
     /// contract to query for the dynamic price of a token. Since its logic is arbitrary, other methods may be
     /// infeasible to implement. An example of that would be an IDynamicTokenAmountInfo that accepts any token converted
@@ -296,6 +317,15 @@ contract PaymentRequest is ERC721Enumerable {
         uint256 paymentRequestId,
         address token
     ) internal {
+        
+        // if it's a restricted PaymentRequest, only one address can pay
+        if (isRestricted(paymentRequestId)) {
+            require(
+                getRestrictedAddress(paymentRequestId) == msg.sender,
+                "Only the restricted address can pay for this PaymentRequest"
+            );
+        }
+
         // Check if pre-conditions for payment are met. For example, perhaps you only want to allow this product
         // to be purchasable by addresses who own a particular NFT, or perhaps owners of a particular NFT are allowed
         // to pay in a particular token.
@@ -318,7 +348,8 @@ contract PaymentRequest is ERC721Enumerable {
             emit PaymentPreconditionPassed(
                 paymentRequestId,
                 token,
-                msg.sender            );
+                msg.sender
+            );
             
         }
     }
@@ -409,16 +440,17 @@ contract PaymentRequest is ERC721Enumerable {
 
 
     /* == BEGIN PaymentRequest creation procedures == */
-
     function createWithStaticTokenAmount(
         TokenAmountInfo[] memory prices,
         address paymentPrecondition,
-        address postPaymentAction
-    ) public returns (uint256) {
+        address postPaymentAction,
+        address from
+    ) external returns (uint256) {
         uint256 tokenId = _createCommonBase(msg.sender, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
-        _storeTokenAmountsInInternalStructures(tokenId, prices);
+        _storeTokenAmountsInInternalStructures(tokenId, prices);        
+        tokenIdToFrom[tokenId] = from;
 
         return tokenId;
     }
@@ -426,16 +458,18 @@ contract PaymentRequest is ERC721Enumerable {
     function createWithDynamicTokenAmount(
         address dynamicTokenAmount,
         address paymentPrecondition,
-        address postPaymentAction
+        address postPaymentAction,
+        address from
     ) public returns (uint256) {
         uint256 tokenId = _createCommonBase(msg.sender, paymentPrecondition, postPaymentAction);
 
         // map token prices into internal data structure
         tokenIdToDynamicTokenAmount[tokenId] = dynamicTokenAmount;
 
+        tokenIdToFrom[tokenId] = from;
+
         return tokenId;
     }
-
 
     /* == END PaymentRequest creation procedures == */
 
@@ -444,6 +478,10 @@ contract PaymentRequest is ERC721Enumerable {
         require(
             msg.sender == ownerOf(paymentRequestId),
             "Only owner can enable a PaymentRequest"
+        );
+        require(
+            !isRestricted(paymentRequestId),
+            "Restricted PaymentRequest cannot be (re)enabled."
         );
         if (isEnabled(paymentRequestId)) {
             return;
@@ -477,18 +515,13 @@ contract PaymentRequest is ERC721Enumerable {
     }
 
     /* == END PaymentRequest state readers == */
-    
-    function payA(uint256 paymentRequestId, address token, address data, uint256 dataId) external paymentRequestIsEnabled(paymentRequestId) returns (uint256) {
-        // TODO: include arbitrary data with payment Request.
-        return 0;
-    }
 
     function pay(uint256 paymentRequestId, address token)
         external
         paymentRequestIsEnabled(paymentRequestId)
         returns (uint256)
     {
-
+        
         _checkPaymentPrecondition(paymentRequestId, token);
 
         uint256 tokenAmount = getAmountForToken(
@@ -502,7 +535,6 @@ contract PaymentRequest is ERC721Enumerable {
             tokenAmount
         );
 
-
         // PaymentReqeust has been successfully paid, emit receipt
         uint256 receiptId = _emitReceipt(
             {
@@ -512,6 +544,10 @@ contract PaymentRequest is ERC721Enumerable {
             }
         );
         _executePostPaymentAction(paymentRequestId, receiptId);
+
+        if (isRestricted(paymentRequestId)) {
+            disable(paymentRequestId);
+        }
 
         emit PaymentRequestPaid(paymentRequestId, receiptId, token, tokenAmount, msg.sender, ownerOf(paymentRequestId));
 
