@@ -11,7 +11,7 @@ contract DiscountedTokenAmountForFirst100Customers is IDynamicTokenAmount {
     uint256 public numUniquePurchases = 0;
     mapping(address => bool) internal isPurchaseAccountedForAddr;
 
-    function getAmountForToken(uint256 paymentRequestId, address token, address payer, address beneficiary) public override returns (uint256) {
+    function getAmountForToken(uint256 paymentRequestId, address token, address payer) public override returns (uint256) {
         PaymentRequest paymentRequest = PaymentRequest(msg.sender);
         Receipt receipt = Receipt(paymentRequest.receipt());
 
@@ -35,7 +35,7 @@ contract DiscountedTokenAmountForFirst100Customers is IDynamicTokenAmount {
             return PRICE;
         }
     }
-    function isTokenAccepted(uint256 paymentRequestId, address token, address payer, address beneficiary) public override returns (bool) {
+    function isTokenAccepted(uint256 paymentRequestId, address token, address payer) public override returns (bool) {
         return true;
     }
 }

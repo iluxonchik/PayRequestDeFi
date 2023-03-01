@@ -10,8 +10,7 @@ contract MyPostPaymentAction is IPostPaymentAction {
         address receiptToken,
         uint256 receiptTokenAmount,
         address payer,
-        address payee,
-        address beneficiary
+        address payee
     );
     event StaticTokenAmountPPAExecuted(
         address receipt,
@@ -20,7 +19,6 @@ contract MyPostPaymentAction is IPostPaymentAction {
         uint256 receiptTokenAmount,
         address payer,
         address payee,
-        address beneficiary,
         address paymentRequestToken,
         uint256 paymentRequestTokenAmount
     );
@@ -33,7 +31,6 @@ contract MyPostPaymentAction is IPostPaymentAction {
         uint256 tokenAmount = receiptMetadata.tokenAmount;
         address payer = receiptMetadata.payer;
         address payee = receiptMetadata.payee;
-        address beneficiary = receiptMetadata.beneficiary;
 
         address paymentRequestAddr = receiptMetadata.paymentRequest;
         uint256 paymentRequestId = receiptMetadata.paymentRequestId;
@@ -43,9 +40,9 @@ contract MyPostPaymentAction is IPostPaymentAction {
             TokenAmountInfo[] memory tokenAmounts = paymentRequest.getStaticTokenAmountInfos(paymentRequestId);
             address firstToken = tokenAmounts[0].token;
             uint256 tokenAmountStatic = paymentRequest.getStaticAmountForToken(paymentRequestId, firstToken);
-            emit StaticTokenAmountPPAExecuted(receipt, receiptId, token, tokenAmount, payer, payee, beneficiary, firstToken, tokenAmountStatic);
+            emit StaticTokenAmountPPAExecuted(receipt, receiptId, token, tokenAmount, payer, payee, firstToken, tokenAmountStatic);
         } else {
-            emit DynamicTokenAmountPPAExecuted(receipt, receiptId, token, tokenAmount, payer, payee, beneficiary);
+            emit DynamicTokenAmountPPAExecuted(receipt, receiptId, token, tokenAmount, payer, payee);
         }
 
     }
