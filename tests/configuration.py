@@ -338,7 +338,6 @@ class PaymentRequestTestProxy:
             tx: TransactionReceipt = self._payment_request_builder.payment_request.getAmountForToken(
                 payment_request_id,
                 selected_token_for_payment.address,
-                payer.address,  # beneficiary
             )
             assert tx.status == Status.Confirmed
             token_amount: int = int(tx.return_value)

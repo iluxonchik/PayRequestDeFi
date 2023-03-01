@@ -9,8 +9,8 @@ from brownie.network.transaction import TransactionReceipt
 from scripts.utils.contants import EventName, ExpectedEventsFor
 
 
-def assert_receipt_metadata_is_correct(*, receipt: Receipt, receipt_id: int, payment_request_addr: str, payment_request_id: int, token_addr: str, token_amount: int, payer_addr: str, payee_addr: str, beneficiary_addr: str):
-    assert receipt.getReceiptData(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr, beneficiary_addr)
+def assert_receipt_metadata_is_correct(*, receipt: Receipt, receipt_id: int, payment_request_addr: str, payment_request_id: int, token_addr: str, token_amount: int, payer_addr: str, payee_addr: str):
+    assert receipt.getReceiptData(receipt_id) == (payment_request_addr, payment_request_id, token_addr, token_amount, payer_addr, payee_addr)
 
 def assert_dynamic_token_amount_event_is_correct(*,
                                                  events: Optional[EventDict],
@@ -20,7 +20,7 @@ def assert_dynamic_token_amount_event_is_correct(*,
                                                  receipt_token_amount: int,
                                                  payer: str,
                                                  payee: str,
-                                                 beneficiary: str):
+                                                 ):
     if not events:
         pytest.fail("Passed events are None or empty")
 
@@ -32,7 +32,6 @@ def assert_dynamic_token_amount_event_is_correct(*,
         "receiptTokenAmount": receipt_token_amount,
         "payer": payer,
         "payee": payee,
-        "beneficiary": beneficiary,
     }
 def assert_static_token_amount_event_is_correct(*,
                                                 events: Optional[EventDict],
@@ -42,7 +41,6 @@ def assert_static_token_amount_event_is_correct(*,
                                                 receipt_token_amount: int,
                                                 payer: str,
                                                 payee: str,
-                                                beneficiary: str,
                                                 payment_request_token_addr: str,
                                                 payment_request_token_price: int
                                                 ):
@@ -56,7 +54,6 @@ def assert_static_token_amount_event_is_correct(*,
         "receiptTokenAmount": receipt_token_amount,
         "payer": payer,
         "payee": payee,
-        "beneficiary": beneficiary,
         "paymentRequestToken": payment_request_token_addr,
         "paymentRequestTokenAmount": payment_request_token_price,
     }

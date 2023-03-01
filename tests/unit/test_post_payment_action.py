@@ -86,7 +86,6 @@ def test_GIVEN_static_prices_and_post_payment_action_WHEN_payment_is_succesfull_
         receipt_token_amount=price_in_tokens,
         payer=payee_from_account.address,
         payee=deployer.address,
-        beneficiary=payee_from_account.address,
         payment_request_token_addr=erc_20_first,
         payment_request_token_price=price_in_tokens,
     )
@@ -174,7 +173,6 @@ def test_GIVEN_dynamic_prices_and_post_payment_action_WHEN_payment_is_succesfull
         receipt_token_amount=price_in_tokens,
         payer=payee_from_account.address,
         payee=deployer.address,
-        beneficiary=payee_from_account.address,
     )
 
     assert not payment_request.isTokenAmountStatic(payment_request_id)

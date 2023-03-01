@@ -80,7 +80,6 @@ def test_GIVEN_fixed_price_computer_function_WHEN_attempt_to_purchase_is_made_TH
         token_amount=price_in_tokens,
         payer_addr=purchaser.address,
         payee_addr=deployer.address,
-        beneficiary_addr=purchaser.address,
     )
     assert not payment_request.isTokenAmountStatic(payment_request_id)
     assert payment_request.isTokenAmountDynamic(payment_request_id)
